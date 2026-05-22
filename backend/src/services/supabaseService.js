@@ -75,10 +75,28 @@ export const fetchTranscriptSummaries = async ({ limit, offset = 0 } = {}) => {
 
   const params = [];
   let sql = `
-      SELECT id, title, speakers, event_date, conference, channel_name, loc,
-        tags, topics, categories, summary
-    FROM transcripts
-    ORDER BY event_date DESC
+    SELECT
+        t.id,
+        c.title,
+        COALESCE(array_agg(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL), '{}') AS speakers,
+        c.event_date,
+        tx.name AS conference,
+        cs.name AS channel_name,
+        NULL AS loc,
+        COALESCE(c.source_metadata->'tags', '[]') AS tags,
+        '[]'::jsonb AS topics,
+        '[]'::jsonb AS categories,
+        MAX(su.content) AS summary
+    FROM transcripts t
+    JOIN content_items c ON t.content_item_id = c.id
+    LEFT JOIN content_sources cs ON c.source_id = cs.id
+    LEFT JOIN content_item_speakers cis ON c.id = cis.content_item_id
+    LEFT JOIN speakers s ON cis.speaker_id = s.id
+    LEFT JOIN taxonomies tx ON c.event_id = tx.id
+    LEFT JOIN summaries su ON t.id = su.transcript_id AND su.summary_type = 'tldr'
+    WHERE t.is_current = true
+    GROUP BY t.id, c.id, cs.id, tx.id
+    ORDER BY c.event_date DESC NULLS LAST
   `;
 
   if (typeof limit === 'number') {
@@ -153,9 +171,33 @@ const formatTranscript = (row) => {
 export const fetchAllTranscripts = async () => {
   logger.info('Fetching all transcripts from database...');
 
-  const result = await query(
-    `SELECT * FROM transcripts ORDER BY event_date DESC`
-  );
+  const sql = `
+    SELECT
+        t.id,
+        c.title,
+        COALESCE(array_agg(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL), '{}') AS speakers,
+        c.event_date,
+        tx.name AS conference,
+        cs.name AS channel_name,
+        NULL AS loc,
+        COALESCE(c.source_metadata->'tags', '[]') AS tags,
+        '[]'::jsonb AS topics,
+        '[]'::jsonb AS categories,
+        MAX(su.content) AS summary,
+        t.raw_text,
+        t.corrected_text
+    FROM transcripts t
+    JOIN content_items c ON t.content_item_id = c.id
+    LEFT JOIN content_sources cs ON c.source_id = cs.id
+    LEFT JOIN content_item_speakers cis ON c.id = cis.content_item_id
+    LEFT JOIN speakers s ON cis.speaker_id = s.id
+    LEFT JOIN taxonomies tx ON c.event_id = tx.id
+    LEFT JOIN summaries su ON t.id = su.transcript_id AND su.summary_type = 'tldr'
+    WHERE t.is_current = true
+    GROUP BY t.id, c.id, cs.id, tx.id
+    ORDER BY c.event_date DESC NULLS LAST
+  `;
+  const result = await query(sql);
 
   logger.info(`Successfully fetched ${result.rows.length} transcripts`);
   return result.rows.map(formatTranscript);
@@ -169,10 +211,33 @@ export const fetchAllTranscripts = async () => {
 export const fetchTranscriptById = async (id) => {
   logger.info(`Fetching transcript with ID: ${id}`);
 
-  const result = await query(
-    `SELECT * FROM transcripts WHERE id = $1`,
-    [id]
-  );
+  const sql = `
+    SELECT
+        t.id,
+        c.title,
+        COALESCE(array_agg(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL), '{}') AS speakers,
+        c.event_date,
+        tx.name AS conference,
+        cs.name AS channel_name,
+        NULL AS loc,
+        COALESCE(c.source_metadata->'tags', '[]') AS tags,
+        '[]'::jsonb AS topics,
+        '[]'::jsonb AS categories,
+        MAX(su.content) AS summary,
+        t.raw_text,
+        t.corrected_text
+    FROM transcripts t
+    JOIN content_items c ON t.content_item_id = c.id
+    LEFT JOIN content_sources cs ON c.source_id = cs.id
+    LEFT JOIN content_item_speakers cis ON c.id = cis.content_item_id
+    LEFT JOIN speakers s ON cis.speaker_id = s.id
+    LEFT JOIN taxonomies tx ON c.event_id = tx.id
+    LEFT JOIN summaries su ON t.id = su.transcript_id AND su.summary_type = 'tldr'
+    WHERE t.id = $1 AND t.is_current = true
+    GROUP BY t.id, c.id, cs.id, tx.id
+  `;
+
+  const result = await query(sql, [id]);
 
   if (result.rows.length === 0) {
     logger.warn(`Transcript not found: ${id}`);
@@ -192,7 +257,7 @@ export const fetchTranscriptById = async (id) => {
  */
 export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => {
   const sanitized = searchQuery
-    .replace(/[<>"'`;(){}[\]\\]/g, '')
+    .replace(/[<>"'\`;(){}[\\]\\\\]/g, '')
     .trim()
     .substring(0, 200);
 
@@ -203,45 +268,72 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
 
   logger.info(`FTS searching for: "${sanitized}" (limit=${limit}, offset=${offset})`);
 
-  const ftsVector = `to_tsvector('english',
-      coalesce(title, '') || ' ' ||
-      coalesce(conference, '') || ' ' ||
-      coalesce(channel_name, '') || ' ' ||
-      coalesce(array_to_string(speakers, ' '), '') || ' ' ||
-      coalesce(array_to_string(tags, ' '), '') || ' ' ||
-      coalesce(array_to_string(topics, ' '), '') || ' ' ||
-      coalesce(summary, '') || ' ' ||
-      coalesce(raw_text, '') || ' ' ||
-      coalesce(corrected_text, ''))`;
+  try {
+    const ftsQuery = `plainto_tsquery('english', $1)`;
+    const textVector = `to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))`;
+    const titleDescVector = `to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))`;
+    const summaryVector = `to_tsvector('english', COALESCE(su.content, ''))`;
 
-  const [searchResult, countResult] = await Promise.all([
-    query(
-      `SELECT
-        id, title, speakers, event_date, loc, tags, categories,
-        conference, topics, channel_name, status, summary,
-        ts_rank(${ftsVector}, plainto_tsquery('english', $1)) AS rank,
-        ts_headline('english', coalesce(corrected_text, raw_text, ''),
-                    plainto_tsquery('english', $1),
-                    'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
-      FROM transcripts
-      WHERE ${ftsVector} @@ plainto_tsquery('english', $1)
+    const searchSql = `
+      SELECT
+          t.id,
+          c.title,
+          COALESCE(array_agg(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL), '{}') AS speakers,
+          c.event_date,
+          tx.name AS conference,
+          cs.name AS channel_name,
+          NULL AS loc,
+          COALESCE(c.source_metadata->'tags', '[]') AS tags,
+          '[]'::jsonb AS topics,
+          '[]'::jsonb AS categories,
+          MAX(su.content) AS summary,
+          ts_rank(${titleDescVector} || ${textVector}, ${ftsQuery}) AS rank,
+          ts_headline('english', coalesce(t.corrected_text, t.raw_text, ''), ${ftsQuery}, 'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
+      FROM transcripts t
+      JOIN content_items c ON t.content_item_id = c.id
+      LEFT JOIN content_sources cs ON c.source_id = cs.id
+      LEFT JOIN content_item_speakers cis ON c.id = cis.content_item_id
+      LEFT JOIN speakers s ON cis.speaker_id = s.id
+      LEFT JOIN taxonomies tx ON c.event_id = tx.id
+      LEFT JOIN summaries su ON t.id = su.transcript_id AND su.summary_type = 'tldr'
+      WHERE t.is_current = true
+        AND (
+          ${titleDescVector} @@ ${ftsQuery}
+          OR ${textVector} @@ ${ftsQuery}
+          OR ${summaryVector} @@ ${ftsQuery}
+        )
+      GROUP BY t.id, c.id, cs.id, tx.id
       ORDER BY rank DESC
-      LIMIT $2 OFFSET $3`,
-      [sanitized, limit, offset]
-    ),
-    query(
-      `SELECT COUNT(*) AS total
-      FROM transcripts
-      WHERE ${ftsVector} @@ plainto_tsquery('english', $1)`,
-      [sanitized]
-    ),
-  ]);
+      LIMIT $2 OFFSET $3
+    `;
 
-  const results = searchResult.rows;
-  const total = parseInt(countResult.rows[0]?.total || '0', 10);
+    const countSql = `
+      SELECT COUNT(DISTINCT t.id) AS total
+      FROM transcripts t
+      JOIN content_items c ON t.content_item_id = c.id
+      LEFT JOIN summaries su ON t.id = su.transcript_id AND su.summary_type = 'tldr'
+      WHERE t.is_current = true
+        AND (
+          to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, '')) @@ plainto_tsquery('english', $1)
+          OR to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, '')) @@ plainto_tsquery('english', $1)
+          OR to_tsvector('english', COALESCE(su.content, '')) @@ plainto_tsquery('english', $1)
+        )
+    `;
 
-  logger.info(`FTS search returned ${results.length} results (total: ${total})`);
-  return { results, total };
+    const [searchResult, countResult] = await Promise.all([
+      query(searchSql, [sanitized, limit, offset]),
+      query(countSql, [sanitized]),
+    ]);
+
+    const results = searchResult.rows;
+    const total = parseInt(countResult.rows[0]?.total || '0', 10);
+
+    logger.info(`FTS search returned ${results.length} results (total: ${total})`);
+    return { results, total };
+  } catch (err) {
+    logger.error('Error executing FTS search query:', { error: err.message });
+    throw err;
+  }
 };
 
 /**
@@ -253,7 +345,7 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
 export const getCachedAIContent = async (transcriptId, type) => {
   try {
     const result = await query(
-      `SELECT content FROM ai_cache WHERE transcript_id = $1 AND type = $2`,
+      `SELECT content FROM summaries WHERE transcript_id = $1 AND summary_type = $2`,
       [transcriptId, type]
     );
     return result.rows[0]?.content || null;
@@ -271,17 +363,26 @@ export const getCachedAIContent = async (transcriptId, type) => {
  */
 export const cacheAIContent = async (transcriptId, type, content) => {
   try {
-    await query(
-      `INSERT INTO ai_cache (transcript_id, type, content, created_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (transcript_id, type)
-       DO UPDATE SET content = EXCLUDED.content, created_at = NOW()`,
-      [transcriptId, type, content]
+    const existing = await query(
+      `SELECT id FROM summaries WHERE transcript_id = $1 AND summary_type = $2`,
+      [transcriptId, type]
     );
+
+    if (existing.rows.length > 0) {
+      await query(
+        `UPDATE summaries SET content = $1, created_at = NOW() WHERE id = $2`,
+        [content, existing.rows[0].id]
+      );
+    } else {
+      await query(
+        `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [transcriptId, type, content]
+      );
+    }
     logger.debug(`Cached ${type} for transcript ${transcriptId}`);
   } catch (err) {
     logger.warn('Cache store error:', { error: err.message });
-    // Don't throw - caching failure shouldn't break the main flow
   }
 };
 
@@ -309,8 +410,21 @@ export const fetchTranscriptMeta = async () => {
 
   const result = await query(`
     SELECT
-      speakers, tags, topics, conference, channel_name, categories, loc
-    FROM transcripts
+        COALESCE(array_agg(DISTINCT s.name) FILTER (WHERE s.name IS NOT NULL), '{}') AS speakers,
+        COALESCE(c.source_metadata->'tags', '[]') AS tags,
+        '[]'::jsonb AS topics,
+        tx.name AS conference,
+        cs.name AS channel_name,
+        '[]'::jsonb AS categories,
+        NULL AS loc
+    FROM transcripts t
+    JOIN content_items c ON t.content_item_id = c.id
+    LEFT JOIN content_sources cs ON c.source_id = cs.id
+    LEFT JOIN content_item_speakers cis ON c.id = cis.content_item_id
+    LEFT JOIN speakers s ON cis.speaker_id = s.id
+    LEFT JOIN taxonomies tx ON c.event_id = tx.id
+    WHERE t.is_current = true
+    GROUP BY t.id, c.id, cs.id, tx.id
   `);
 
   const rows = result.rows;
@@ -330,6 +444,9 @@ export const fetchTranscriptMeta = async () => {
   };
 
   for (const row of rows) {
+    // In the new schema, tags from source_metadata serve as both tags and topics
+    const rowTags = Array.isArray(row.tags) ? row.tags : [];
+
     // Speakers
     if (Array.isArray(row.speakers)) {
       for (const s of row.speakers) {
@@ -338,37 +455,29 @@ export const fetchTranscriptMeta = async () => {
         if (!speakerKey) continue;
         if (!speakerMap[speakerKey]) speakerMap[speakerKey] = { name: speakerName, transcriptCount: 0, topics: new Set() };
         speakerMap[speakerKey].transcriptCount++;
-        if (Array.isArray(row.topics)) {
-          row.topics.forEach((t) => {
-            const topicName = cleanLabel(t);
-            if (topicName) speakerMap[speakerKey].topics.add(topicName);
-          });
+        for (const t of rowTags) {
+          const topicName = cleanLabel(t);
+          if (topicName) speakerMap[speakerKey].topics.add(topicName);
         }
       }
     }
 
-    // Topics
-    if (Array.isArray(row.topics)) {
-      for (const t of row.topics) {
-        const topicName = cleanLabel(t);
-        const topicKey = normalizeLabel(topicName);
-        if (!topicKey) continue;
-        if (!topicMap[topicKey]) topicMap[topicKey] = { name: topicName, count: 0 };
-        topicMap[topicKey].count++;
-      }
+    // Topics (derived from source_metadata tags)
+    for (const t of rowTags) {
+      const topicName = cleanLabel(t);
+      const topicKey = normalizeLabel(topicName);
+      if (!topicKey) continue;
+      if (!topicMap[topicKey]) topicMap[topicKey] = { name: topicName, count: 0 };
+      topicMap[topicKey].count++;
     }
 
-    // Tags — combine tags and topics since tags is often empty
-    for (const arr of [row.tags, row.topics]) {
-      if (Array.isArray(arr)) {
-        for (const t of arr) {
-          const tagName = cleanLabel(t);
-          const tagKey = normalizeLabel(tagName);
-          if (!tagKey) continue;
-          if (!tagSet[tagKey]) tagSet[tagKey] = { name: tagName, count: 0 };
-          tagSet[tagKey].count++;
-        }
-      }
+    // Tags
+    for (const t of rowTags) {
+      const tagName = cleanLabel(t);
+      const tagKey = normalizeLabel(tagName);
+      if (!tagKey) continue;
+      if (!tagSet[tagKey]) tagSet[tagKey] = { name: tagName, count: 0 };
+      tagSet[tagKey].count++;
     }
 
     // Conferences (from conference or channel_name field)
