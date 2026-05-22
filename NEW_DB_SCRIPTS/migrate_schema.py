@@ -15,7 +15,7 @@ load_dotenv()
 # Add project root to path so we can import from app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.models import Base
+from NEW_DB_SCRIPTS.models import Base
 from app.database import get_session, _get_engine
 
 # Configure logging
@@ -138,11 +138,13 @@ def run_migration(dry_run=False):
                     RETURNING id;
                 """)).scalar()
 
-                transcripts = conn.execute(text("SELECT * FROM old_transcripts")).fetchall()
-                logger.info(f"Processing {len(transcripts)} old transcripts...")
+                transcripts = conn.execution_options(stream_results=True).execute(text("SELECT * FROM old_transcripts"))
+                logger.info("Processing old transcripts incrementally...")
                 
                 migrated_transcripts_count = 0
                 for t in transcripts:
+                    if migrated_transcripts_count > 0 and migrated_transcripts_count % 1000 == 0:
+                        logger.info(f"Processed {migrated_transcripts_count} transcripts so far...")
                     t_id = t.id
                     raw = t.raw_text
                     corrected = t.corrected_text
@@ -271,3 +273,4 @@ if __name__ == "__main__":
         logger.error(f"Migration failed: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)

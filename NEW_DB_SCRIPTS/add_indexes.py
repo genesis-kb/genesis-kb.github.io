@@ -85,3 +85,4 @@ if __name__ == "__main__":
         logger.error(f"Failed to add indexes: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
