@@ -26,6 +26,8 @@ RETURNS TABLE (
   tags jsonb,
   categories jsonb,
   summary text,
+  status text,
+  duration_seconds integer,
   rank real,
   headline_title text,
   headline_content text
@@ -54,9 +56,12 @@ BEGIN
     COALESCE(c.source_metadata->'tags', '[]'::jsonb) AS tags,
     '[]'::jsonb AS categories,
     MAX(su.content) AS summary,
+    c.status,
+    t.duration_seconds,
     ts_rank(
       to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))
-      || to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, '')),
+      || to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))
+      || to_tsvector('english', COALESCE(su.content, '')),
       tsquery_val
     ) AS rank,
     ts_headline(

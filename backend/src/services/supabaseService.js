@@ -86,7 +86,9 @@ export const fetchTranscriptSummaries = async ({ limit, offset = 0 } = {}) => {
         COALESCE(c.source_metadata->'tags', '[]') AS tags,
         '[]'::jsonb AS topics,
         '[]'::jsonb AS categories,
-        MAX(su.content) AS summary
+        MAX(su.content) AS summary,
+        c.status,
+        t.duration_seconds
     FROM transcripts t
     JOIN content_items c ON t.content_item_id = c.id
     LEFT JOIN content_sources cs ON c.source_id = cs.id
@@ -185,7 +187,9 @@ export const fetchAllTranscripts = async () => {
         '[]'::jsonb AS categories,
         MAX(su.content) AS summary,
         t.raw_text,
-        t.corrected_text
+        t.corrected_text,
+        c.status,
+        t.duration_seconds
     FROM transcripts t
     JOIN content_items c ON t.content_item_id = c.id
     LEFT JOIN content_sources cs ON c.source_id = cs.id
@@ -225,7 +229,9 @@ export const fetchTranscriptById = async (id) => {
         '[]'::jsonb AS categories,
         MAX(su.content) AS summary,
         t.raw_text,
-        t.corrected_text
+        t.corrected_text,
+        c.status,
+        t.duration_seconds
     FROM transcripts t
     JOIN content_items c ON t.content_item_id = c.id
     LEFT JOIN content_sources cs ON c.source_id = cs.id
@@ -287,7 +293,9 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
           '[]'::jsonb AS topics,
           '[]'::jsonb AS categories,
           MAX(su.content) AS summary,
-          ts_rank(${titleDescVector} || ${textVector}, ${ftsQuery}) AS rank,
+          c.status,
+          t.duration_seconds,
+          ts_rank(${titleDescVector} || ${textVector} || ${summaryVector}, ${ftsQuery}) AS rank,
           ts_headline('english', coalesce(t.corrected_text, t.raw_text, ''), ${ftsQuery}, 'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
       FROM transcripts t
       JOIN content_items c ON t.content_item_id = c.id
@@ -363,23 +371,13 @@ export const getCachedAIContent = async (transcriptId, type) => {
  */
 export const cacheAIContent = async (transcriptId, type, content) => {
   try {
-    const existing = await query(
-      `SELECT id FROM summaries WHERE transcript_id = $1 AND summary_type = $2`,
-      [transcriptId, type]
+    await query(
+      `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (transcript_id, summary_type)
+       DO UPDATE SET content = EXCLUDED.content, created_at = NOW()`,
+      [transcriptId, type, content]
     );
-
-    if (existing.rows.length > 0) {
-      await query(
-        `UPDATE summaries SET content = $1, created_at = NOW() WHERE id = $2`,
-        [content, existing.rows[0].id]
-      );
-    } else {
-      await query(
-        `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
-         VALUES ($1, $2, $3, NOW())`,
-        [transcriptId, type, content]
-      );
-    }
     logger.debug(`Cached ${type} for transcript ${transcriptId}`);
   } catch (err) {
     logger.warn('Cache store error:', { error: err.message });

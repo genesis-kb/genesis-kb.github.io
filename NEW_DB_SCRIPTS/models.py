@@ -90,7 +90,7 @@ class ContentSource(Base):
     source_type = Column(Text, nullable=False)  # 'youtube', 'scraper', 'rss', 'manual'
     base_url = Column(Text)
     config = Column(JSONB, server_default=text("'{}'::jsonb"))
-    is_active = Column(Boolean, server_default=text("true"))
+    is_active = Column(Boolean, server_default=text("true"), nullable=False)
     last_run_status = Column(Text)
     last_run_id = Column(
         UUID(as_uuid=True),
@@ -331,7 +331,7 @@ class Transcript(Base):
         ForeignKey("content_items.id", ondelete="CASCADE"),
         nullable=False,
     )
-    is_current = Column(Boolean, server_default=text("false"))
+    is_current = Column(Boolean, server_default=text("false"), nullable=False)
     version = Column(Integer, server_default=text("1"))
     raw_text = Column(Text)
     corrected_text = Column(Text)
