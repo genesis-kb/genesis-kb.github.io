@@ -5,31 +5,38 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { useBookmarks } from '@/hooks/useBookmarks'
-import { Copy, Save, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Copy, X, StickyNote, Languages, Bot, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { useBookmarks } from '@/hooks/useBookmarks'
+import { cn } from '@/lib/utils'
 
 interface HighlightToolbarProps {
   containerRef: React.RefObject<HTMLDivElement>
   transcriptId: string
   transcriptTitle: string
+  onAddNote?: (selectedText: string) => void
+  onExtractConcept?: (selectedText: string) => void
+  onAskAI?: (selectedText: string) => void
+  onTranslate?: (selectedText: string, targetLanguage: string) => void
 }
 
 export function HighlightToolbar({
   containerRef,
   transcriptId,
   transcriptTitle,
+  onAddNote,
+  onExtractConcept,
+  onAskAI,
+  onTranslate,
 }: HighlightToolbarProps) {
   const { addHighlight } = useBookmarks()
 
   const [toolbarVisible, setToolbarVisible] = useState(false)
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 })
   const [selectedText, setSelectedText] = useState('')
-  const [showNoteInput, setShowNoteInput] = useState(false)
-  const [noteValue, setNoteValue] = useState('')
-  const isSavingRef = useRef(false)
+  const [showTranslateMenu, setShowTranslateMenu] = useState(false)
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const isSavingRef = useRef(false)
 
   useEffect(() => {
     if (!toolbarRef.current) return
@@ -91,8 +98,7 @@ export function HighlightToolbar({
 
         setToolbarPosition({ top: Math.max(0, top), left: Math.max(0, left) })
         setSelectedText(selectedStr)
-        setShowNoteInput(false)
-        setNoteValue('')
+        setShowTranslateMenu(false)
         setToolbarVisible(true)
       } catch {
         setToolbarVisible(false)
@@ -132,11 +138,18 @@ export function HighlightToolbar({
     }
   }, [toolbarVisible])
 
+  useEffect(() => {
+    if (!toolbarVisible) {
+      setShowTranslateMenu(false)
+      setSelectedText('')
+    }
+  }, [toolbarVisible])
+
   /**
-   * Save highlight with optional note
+   * Save highlight with optional style
    */
-  const handleSaveHighlight = () => {
-    if (isSavingRef.current) return
+  const handleSaveStyle = (color?: string, isUnderline?: boolean) => {
+    if (!selectedText.trim() || isSavingRef.current) return
 
     isSavingRef.current = true
 
@@ -145,13 +158,13 @@ export function HighlightToolbar({
         transcriptId,
         transcriptTitle,
         selectedText,
-        noteValue.trim() || undefined
+        undefined,
+        color,
+        isUnderline
       )
 
       // Reset state
       setToolbarVisible(false)
-      setShowNoteInput(false)
-      setNoteValue('')
       setSelectedText('')
     } finally {
       isSavingRef.current = false
@@ -164,6 +177,7 @@ export function HighlightToolbar({
     try {
       await navigator.clipboard.writeText(selectedText)
       toast.success('Copied selection')
+      setToolbarVisible(false)
     } catch {
       toast.error('Could not copy selection')
     }
@@ -174,90 +188,57 @@ export function HighlightToolbar({
   return (
     <div
       ref={toolbarRef}
-      className="absolute bg-card border border-border rounded-lg shadow-lg p-3 z-50 max-w-80"
+      className="absolute bg-card border border-border rounded-lg shadow-lg p-2 z-50 flex flex-col gap-2 min-w-[200px]"
     >
-      {!showNoteInput ? (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowNoteInput(true)}
-            className={cn(
-              'flex-1 flex items-center justify-center gap-2',
-              'px-3 py-2 rounded bg-primary text-primary-foreground',
-              'text-sm font-medium hover:bg-primary/90',
-              'transition-colors',
-              isSavingRef.current && 'opacity-50 cursor-not-allowed'
-            )}
-            disabled={isSavingRef.current}
+      {showTranslateMenu ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground px-1">Translate to:</span>
+          <div className="flex flex-wrap gap-1">
+            {['English', 'Spanish', 'French', 'German', 'Hindi', 'Chinese'].map(lang => (
+              <button
+                key={lang}
+                onClick={() => {
+                  onTranslate?.(selectedText, lang)
+                  setToolbarVisible(false)
+                  setShowTranslateMenu(false)
+                }}
+                className="px-2 py-1 text-xs rounded bg-secondary/50 border border-border/50 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={() => setShowTranslateMenu(false)}
+            className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground text-center"
           >
-            <Save className="w-4 h-4" />
-            Save
-          </button>
-          <button
-            onClick={handleCopySelectedText}
-            className={cn(
-              'inline-flex items-center justify-center gap-1',
-              'px-3 py-2 rounded border border-border',
-              'text-sm font-medium hover:bg-secondary',
-              'transition-colors'
-            )}
-            aria-label="Copy selected text"
-            title="Copy selected text"
-          >
-            <Copy className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setToolbarVisible(false)}
-            className="p-2 hover:bg-secondary rounded transition-colors"
-            aria-label="Dismiss"
-          >
-            <X className="w-4 h-4" />
+            Cancel
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
-          <textarea
-            value={noteValue}
-            onChange={(e) => setNoteValue(e.target.value)}
-            placeholder="Add a note (optional)..."
-            className={cn(
-              'w-full px-2 py-1.5 rounded border border-border',
-              'bg-background text-foreground placeholder-muted-foreground',
-              'text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary',
-              'max-h-24'
-            )}
-            rows={3}
-            spellCheck={true}
-          />
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSaveHighlight}
-              className={cn(
-                'flex-1 px-2 py-1.5 rounded bg-primary text-primary-foreground',
-                'text-xs font-medium hover:bg-primary/90',
-                'transition-colors',
-                isSavingRef.current && 'opacity-50 cursor-not-allowed'
-              )}
-              disabled={isSavingRef.current}
-            >
-              Save
-            </button>
-            <button
-              onClick={() => {
-                setShowNoteInput(false)
-                setNoteValue('')
-              }}
-              className={cn(
-                'flex-1 px-2 py-1.5 rounded border border-border',
-                'text-xs font-medium hover:bg-secondary',
-                'transition-colors',
-                isSavingRef.current && 'opacity-50 cursor-not-allowed'
-              )}
-              disabled={isSavingRef.current}
-            >
-              Cancel
+        <>
+          <div className="flex items-center gap-2 border-b border-border pb-2 px-1">
+            <button onClick={() => handleSaveStyle('yellow')} className="w-5 h-5 rounded-full bg-yellow-400 hover:scale-110 transition-transform shadow-sm" aria-label="Highlight Yellow" />
+            <button onClick={() => handleSaveStyle('green')} className="w-5 h-5 rounded-full bg-green-400 hover:scale-110 transition-transform shadow-sm" aria-label="Highlight Green" />
+            <button onClick={() => handleSaveStyle('blue')} className="w-5 h-5 rounded-full bg-blue-400 hover:scale-110 transition-transform shadow-sm" aria-label="Highlight Blue" />
+            <button onClick={() => handleSaveStyle('pink')} className="w-5 h-5 rounded-full bg-pink-400 hover:scale-110 transition-transform shadow-sm" aria-label="Highlight Pink" />
+            <div className="w-px h-4 bg-border mx-1" />
+            <button onClick={() => handleSaveStyle(undefined, true)} className="px-1.5 py-0.5 rounded hover:bg-secondary font-serif font-bold underline transition-colors text-sm" aria-label="Underline">
+              U
             </button>
           </div>
-        </div>
+          <div className="flex items-center justify-between gap-1 px-1">
+            <div className="flex items-center gap-1">
+              <button onClick={handleCopySelectedText} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Copy"><Copy className="w-4 h-4" /></button>
+              {onAddNote && <button onClick={() => { onAddNote(selectedText); setToolbarVisible(false); }} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Add Note"><StickyNote className="w-4 h-4" /></button>}
+              {onExtractConcept && <button onClick={() => { onExtractConcept(selectedText); setToolbarVisible(false); }} className="p-1.5 rounded hover:bg-secondary text-amber-500 hover:text-amber-600 transition-colors" title="Extract Concept"><Sparkles className="w-4 h-4" /></button>}
+            </div>
+            <div className="flex items-center gap-1 border-l border-border pl-1">
+              {onAskAI && <button onClick={() => { onAskAI(selectedText); setToolbarVisible(false); }} className="p-1.5 rounded hover:bg-secondary text-primary transition-colors flex items-center gap-1" title="Ask AI"><Bot className="w-4 h-4" /><span className="text-[10px] font-medium uppercase tracking-wider">Ask AI</span></button>}
+              {onTranslate && <button onClick={() => setShowTranslateMenu(true)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Translate"><Languages className="w-4 h-4" /></button>}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

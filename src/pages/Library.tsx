@@ -7,7 +7,9 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useBookmarks } from '@/hooks/useBookmarks'
+import { useNotes } from '@/hooks/useNotes'
 import { useBookmarkReconciliation } from '@/hooks/useBookmarkReconciliation'
+import { NoteCard } from '@/components/notes/NoteCard'
 import {
   AlertCircle,
   Trash2,
@@ -35,7 +37,7 @@ function formatRelativeTime(savedAt: number): string {
   return 'just now'
 }
 
-type TabType = 'bookmarks' | 'highlights'
+type TabType = 'bookmarks' | 'highlights' | 'notes'
 
 export default function Library() {
   const {
@@ -55,11 +57,18 @@ export default function Library() {
     deletedBookmarkCount,
   } = useBookmarkReconciliation(bookmarks, highlights)
 
+  const { notes, deleteNote, togglePin } = useNotes()
+
   const [activeTab, setActiveTab] = useState<TabType>('bookmarks')
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(
     null
   )
   const [editNoteValue, setEditNoteValue] = useState('')
+
+  const sortedNotes = useMemo(
+    () => [...notes].sort((a, b) => b.updatedAt - a.updatedAt),
+    [notes]
+  )
 
   // Sort bookmarks by savedAt descending
   const sortedBookmarks = useMemo(
@@ -74,7 +83,7 @@ export default function Library() {
   )
 
   // State: empty library
-  if (totalCount === 0) {
+  if (totalCount === 0 && notes.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-16">
         <div className="text-center space-y-6">
@@ -171,6 +180,18 @@ export default function Library() {
             )}
           >
             Highlights ({sortedHighlights.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={cn(
+              'px-4 py-2 font-medium text-sm transition-colors',
+              'border-b-2 -mb-[2px]',
+              activeTab === 'notes'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Notes ({sortedNotes.length})
           </button>
         </div>
 
@@ -382,6 +403,37 @@ export default function Library() {
                       Saved {formatRelativeTime(highlight.savedAt)}
                     </div>
                   </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Notes Tab */}
+        {activeTab === 'notes' && (
+          <div className="space-y-6">
+            {sortedNotes.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No notes yet
+              </p>
+            ) : (
+              sortedNotes.map((note) => (
+                <div key={note.id} className="relative">
+                  <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground px-1">
+                    <span>From:</span>
+                    <Link
+                      to={`/transcript/${note.transcriptId}?tab=notes`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {note.transcriptTitle}
+                    </Link>
+                  </div>
+                  <NoteCard
+                    note={note}
+                    onEdit={() => window.location.href = `/transcript/${note.transcriptId}?tab=notes`}
+                    onDelete={deleteNote}
+                    onTogglePin={togglePin}
+                  />
                 </div>
               ))
             )}
