@@ -42,7 +42,9 @@ export interface UseBookmarksReturn {
     transcriptId: string,
     transcriptTitle: string,
     text: string,
-    note?: string
+    note?: string,
+    color?: string,
+    isUnderline?: boolean
   ) => void
   removeHighlight: (id: string) => void
   updateHighlightNote: (id: string, note: string) => void
@@ -180,7 +182,9 @@ export function useBookmarks(): UseBookmarksReturn {
       transcriptId: string,
       transcriptTitle: string,
       text: string,
-      note?: string
+      note?: string,
+      color?: string,
+      isUnderline?: boolean
     ) => {
       // Validate - minimum 10 characters
       if (text.trim().length < 10) {
@@ -188,7 +192,7 @@ export function useBookmarks(): UseBookmarksReturn {
       }
 
       // Cap text at 500 characters
-      const finalText =
+      const truncatedText =
         text.length > 500 ? text.slice(0, 500) + '...' : text
 
       setLibrary((prev) => {
@@ -196,8 +200,10 @@ export function useBookmarks(): UseBookmarksReturn {
           id: crypto.randomUUID(),
           transcriptId,
           transcriptTitle,
-          text: finalText,
-          note,
+          text: truncatedText,
+          note: note?.trim(),
+          color,
+          isUnderline,
           savedAt: Date.now(),
         }
 
