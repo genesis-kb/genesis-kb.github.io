@@ -7,6 +7,7 @@ import { Router } from 'express';
 import transcriptRoutes from './transcriptRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import healthRoutes from './healthRoutes.js';
+import audiobookRoutes from './audiobookRoutes.js';
 
 const router = Router();
 
@@ -14,6 +15,7 @@ const router = Router();
 router.use('/transcripts', transcriptRoutes);
 router.use('/ai', aiRoutes);
 router.use('/health', healthRoutes);
+router.use('/audiobooks', audiobookRoutes);
 
 // API documentation endpoint
 router.get('/', (req, res) => {
@@ -35,6 +37,14 @@ router.get('/', (req, res) => {
           'POST /api/v1/ai/chat': 'Chat with transcript context',
           'POST /api/v1/ai/tts': 'Generate speech from text',
           'POST /api/v1/ai/entities': 'Extract entities from transcript',
+        },
+        audiobooks: {
+          'GET /api/v1/audiobooks/playlists': 'List playlists (status, playlist_type, source, limit, offset)',
+          'GET /api/v1/audiobooks/playlists/:slug': 'Get playlist by slug with ordered episodes',
+          'GET /api/v1/audiobooks/episodes/:episode_id': 'Get single episode by UUID',
+          'GET /api/v1/audiobooks': 'List all audiobook series',
+          'GET /api/v1/audiobooks/:id/roadmap': 'Get audiobook roadmap with chapters and progress',
+          'POST /api/v1/audiobooks/progress': 'Save user playback progress',
         },
         health: {
           'GET /api/v1/health': 'Basic health check',
