@@ -46,8 +46,8 @@ export interface RawTranscript {
   raw_text: string;
   corrected_text: string | null;
   summary: string | null;
-  tags: string[];
-  categories: string[];
+  tags: string[] | object;
+  categories: string[] | object;
   topics?: string[] | object;
   status?: string;
   duration_seconds?: number;
@@ -74,8 +74,8 @@ export interface SearchResult {
   speakers: string[] | string;
   event_date: string;
   loc: string;
-  tags: string[];
-  categories: string[];
+  tags: string[] | object;
+  categories: string[] | object;
   summary: string | null;
   conference?: string;
   channel_name?: string;
