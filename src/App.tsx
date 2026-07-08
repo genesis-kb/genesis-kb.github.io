@@ -12,6 +12,8 @@ import Sources from "./pages/Sources";
 import TranscriptDetail from "./pages/TranscriptDetail";
 import ConferenceArchive from "./pages/ConferenceArchive";
 import Library from "./pages/Library";
+import Audiobooks from "./pages/Audiobooks";
+import LearningPath from "./pages/LearningPath";
 import About from "./pages/About";
 import SearchResults from "./pages/SearchResults";
 import NotFound from "./pages/NotFound";
@@ -31,7 +33,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ScrollToTop />
         <Layout>
           <Routes>
@@ -45,6 +47,8 @@ const App = () => (
             <Route path="/search" element={<SearchResults />} />
             <Route path="/conferences" element={<ConferenceArchive />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/audiobooks" element={<Audiobooks />} />
+            <Route path="/learning-path/:id" element={<LearningPath />} />
             <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -10,6 +10,7 @@ import { useConferences, useSearch } from "@/hooks/useTranscripts";
 const navItems = [
   { label: "Explore", path: "/topics" },
   { label: "Conferences", path: "/conferences" },
+  { label: "Audiobooks", path: "/audiobooks" },
   { label: "About", path: "/about" },
 ];
 
