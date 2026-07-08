@@ -16,17 +16,23 @@ export const config = {
     transcripts: '/api/v1/transcripts',
     search: '/api/v1/transcripts/search',
     meta: '/api/v1/transcripts/meta',
-    
+
     // AI
     summary: '/api/v1/ai/summary',
     chat: '/api/v1/ai/chat',
     tts: '/api/v1/ai/tts',
     entities: '/api/v1/ai/entities',
-    
+
+    // Audiobooks
+    audiobooks: '/api/v1/audiobooks',
+    audiobookProgress: '/api/v1/audiobooks/progress',
+    playlists: '/api/v1/audiobooks/playlists',
+    episodes: '/api/v1/audiobooks/episodes',
+
     // Health
     health: '/api/v1/health',
   },
-  
+
   // Request timeout in milliseconds
   timeout: 30000,
 };
