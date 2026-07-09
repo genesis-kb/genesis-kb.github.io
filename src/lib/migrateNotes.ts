@@ -29,7 +29,7 @@ export function migrateNotes(raw: unknown): NotesState {
   if (data.version === 1 && Array.isArray(data.notes)) {
     return {
       ...DEFAULT_NOTES,
-      notes: data.notes.map((note: Record<string, unknown>) => ({
+      notes: data.notes.filter((n: unknown) => n && typeof n === 'object').map((note: Record<string, unknown>) => ({
         ...note,
         color: note.color || 'slate',
         tags: Array.isArray(note.tags) ? note.tags : [],
@@ -42,7 +42,7 @@ export function migrateNotes(raw: unknown): NotesState {
   if (!data.version) {
     return {
       ...DEFAULT_NOTES,
-      notes: Array.isArray(data.notes) ? data.notes.map((note: Record<string, unknown>) => ({
+      notes: Array.isArray(data.notes) ? data.notes.filter((n: unknown) => n && typeof n === 'object').map((note: Record<string, unknown>) => ({
         ...note,
         color: note.color || 'slate',
         tags: Array.isArray(note.tags) ? note.tags : [],

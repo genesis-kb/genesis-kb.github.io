@@ -11,6 +11,8 @@ DROP FUNCTION IF EXISTS search_transcripts_fts(text, int, int);
 -- 1. Create the RPC function for full-text search with ranking and snippets.
 --    Searches across content_items (title/description), transcripts (text),
 --    and summaries (content). Only searches current transcript versions.
+DROP FUNCTION IF EXISTS search_transcripts_fts(text, int, int);
+
 CREATE OR REPLACE FUNCTION search_transcripts_fts(
   search_query text,
   result_limit int DEFAULT 20,

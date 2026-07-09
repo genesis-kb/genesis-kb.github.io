@@ -43,6 +43,7 @@ export function NoteTagInput({ tags, onChange }: NoteTagInputProps) {
             type="button"
             onClick={() => removeTag(tag)}
             className="hover:bg-background/50 rounded-full p-0.5"
+            aria-label={`Remove ${tag}`}
           >
             <X className="w-3 h-3" />
           </button>

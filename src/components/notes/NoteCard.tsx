@@ -83,7 +83,7 @@ export function NoteCard({ note, onEdit, onDelete, onTogglePin }: NoteCardProps)
           </div>
 
           {/* Action buttons — visible on hover or always on mobile */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity sm:opacity-0">
+          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
             <button
               onClick={() => onEdit(note)}
               className="p-1.5 rounded hover:bg-secondary transition-colors"

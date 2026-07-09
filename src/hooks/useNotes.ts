@@ -116,14 +116,10 @@ export function useNotes(): UseNotesReturn {
       updatedAt: now,
     }
 
-    setState((prev) => {
-      const nextState = {
-        ...prev,
-        notes: [...prev.notes, note],
-      };
-      noteStore.save(nextState);
-      return nextState;
-    })
+    setState((prev) => ({
+      ...prev,
+      notes: [...prev.notes, note],
+    }))
 
     toast.success('Note saved')
     return id
@@ -134,23 +130,19 @@ export function useNotes(): UseNotesReturn {
    */
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, 'title' | 'content' | 'color' | 'tags' | 'isConcept' | 'position'>>) => {
-      setState((prev) => {
-        const nextState = {
-          ...prev,
-          notes: prev.notes.map((n) =>
-            n.id === id
-              ? {
-                  ...n,
-                  ...updates,
-                  title: updates.title?.trim() || n.title,
-                  updatedAt: Date.now(),
-                }
-              : n
-          ),
-        };
-        noteStore.save(nextState);
-        return nextState;
-      })
+      setState((prev) => ({
+        ...prev,
+        notes: prev.notes.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                ...updates,
+                title: updates.title?.trim() || n.title,
+                updatedAt: Date.now(),
+              }
+            : n
+        ),
+      }))
 
       toast.success('Note updated')
     },
@@ -161,14 +153,10 @@ export function useNotes(): UseNotesReturn {
    * Delete a note by ID
    */
   const deleteNote = useCallback((id: string) => {
-    setState((prev) => {
-      const nextState = {
-        ...prev,
-        notes: prev.notes.filter((n) => n.id !== id),
-      };
-      noteStore.save(nextState);
-      return nextState;
-    })
+    setState((prev) => ({
+      ...prev,
+      notes: prev.notes.filter((n) => n.id !== id),
+    }))
 
     toast.success('Note deleted')
   }, [])

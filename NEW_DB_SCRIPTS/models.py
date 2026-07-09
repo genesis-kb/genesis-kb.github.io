@@ -49,7 +49,8 @@ class Taxonomy(Base):
     meta = Column("metadata", JSONB, server_default=text("'{}'::jsonb"))
     created_at = Column(DateTime(timezone=True), server_default=text("now()"))
 
-    parent = relationship("Taxonomy", remote_side=[id], backref="children")
+    parent = relationship("Taxonomy", remote_side=[id], back_populates="children")
+    children = relationship("Taxonomy", back_populates="parent")
 
     __table_args__ = (
         UniqueConstraint("type", "slug", name="uq_taxonomies_type_slug"),
@@ -319,7 +320,7 @@ class ContentItemSpeaker(Base):
 class Transcript(Base):
     """STT output with version control. is_current=true marks the active version."""
 
-    __tablename__ = "transcripts"
+    __tablename__ = "transcripts_v2"
 
     id = Column(
         UUID(as_uuid=True),
@@ -396,7 +397,7 @@ class Summary(Base):
     )
     transcript_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("transcripts.id", ondelete="CASCADE"),
+        ForeignKey("transcripts_v2.id", ondelete="CASCADE"),
         nullable=False,
     )
     summary_type = Column(Text, nullable=False)  # 'tldr', 'technical', 'newsletter'

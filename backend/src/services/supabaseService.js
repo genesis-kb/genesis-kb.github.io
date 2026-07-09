@@ -224,8 +224,8 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
     const ftsQuery = `plainto_tsquery('english', $1)`;
     const textVector = `to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))`;
     const titleDescVector = `to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))`;
-    const summaryVector = `to_tsvector('english', COALESCE(su.content, ''))`;
     const summaryAggVector = `to_tsvector('english', COALESCE(MAX(su.content), ''))`;
+    const summaryVector = `to_tsvector('english', COALESCE(su.content, ''))`;
 
     const searchSql = `
       SELECT
