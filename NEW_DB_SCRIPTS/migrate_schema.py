@@ -84,14 +84,12 @@ def run_migration(dry_run=False):
             if not dry_run:
                 logger.info("Creating new tables...")
                 Base.metadata.create_all(conn)
-                conn.execute(text("ALTER TABLE transcripts ENABLE ROW LEVEL SECURITY;"))
-                conn.execute(text("DROP POLICY IF EXISTS \"Transcripts are viewable by everyone.\" ON transcripts;"))
-                conn.execute(text("""
-                    CREATE POLICY "Transcripts are viewable by everyone." 
-                    ON transcripts FOR SELECT USING (true);
-                """))
+                logger.info("Setting up RLS policies...")
+                conn.execute(text("ALTER TABLE transcripts_v2 ENABLE ROW LEVEL SECURITY;"))
+                conn.execute(text("DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'Public read access for transcripts') THEN CREATE POLICY \"Public read access for transcripts\" ON transcripts_v2 FOR SELECT USING (true); END IF; END $$;"))
             else:
                 logger.info("DRY RUN: Base.metadata.create_all(conn)")
+                logger.info("DRY RUN: Setup RLS policies")
 
             # 4. Migrate Data
             logger.info("Migrating data from old_youtube_channels -> content_sources...")
@@ -235,9 +233,13 @@ def run_migration(dry_run=False):
                             "ci_id": content_item_id
                         })
 
+                    existing_transcript = conn.execute(text("SELECT id FROM transcripts_v2 WHERE content_item_id = :ci_id AND is_current = true"), {"ci_id": content_item_id}).first()
+                    if existing_transcript:
+                        conn.execute(text("UPDATE transcripts_v2 SET is_current = false WHERE id = :t_id"), {"t_id": existing_transcript[0]})
+                    
                     conn.execute(text("""
-                        INSERT INTO transcripts (id, content_item_id, is_current, version, raw_text, corrected_text, created_at)
-                        VALUES (:t_id, :ci_id, true, 1, :raw, :corr, :created_at)
+                        INSERT INTO transcripts_v2 (id, content_item_id, is_current, version, raw_text, corrected_text, created_at)
+                        VALUES (:t_id, :ci_id, true, (SELECT COALESCE(MAX(version), 0) + 1 FROM transcripts_v2 WHERE content_item_id = :ci_id), :raw, :corr, :created_at)
                     """), {"t_id": t_id, "ci_id": content_item_id, "raw": raw, "corr": corrected, "created_at": t.created_at})
                     migrated_transcripts_count += 1
                     

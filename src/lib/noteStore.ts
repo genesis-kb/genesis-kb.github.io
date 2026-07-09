@@ -91,14 +91,15 @@ class LocalNoteStore implements NoteStore {
               NOTES_STORAGE_KEY,
               JSON.stringify(updatedState)
             )
-            return updatedState
-          } catch {
             toast.warning('Storage full — some old notes were removed')
             return updatedState
+          } catch {
+            toast.error('Storage full — unable to save')
+            return state
           }
         }
 
-        toast.warning('Storage full — some old notes were removed')
+        toast.error('Storage full — unable to save')
         return state
       }
 

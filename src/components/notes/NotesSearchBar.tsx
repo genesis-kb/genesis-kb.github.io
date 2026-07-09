@@ -29,6 +29,7 @@ export function NotesSearchBar({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-9 pr-4 py-1.5 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+          aria-label="Search notes"
         />
       </div>
       <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -38,6 +39,7 @@ export function NotesSearchBar({
             value={colorFilter}
             onChange={(e) => setColorFilter(e.target.value as NoteColor | 'all')}
             className="pl-8 pr-6 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
+            aria-label="Filter by color"
           >
             <option value="all">All Colors</option>
             <option value="slate">Slate</option>
@@ -54,6 +56,7 @@ export function NotesSearchBar({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'az')}
             className="pl-8 pr-6 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
+            aria-label="Sort by"
           >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>

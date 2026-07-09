@@ -52,6 +52,10 @@ export function NoteEditor({
   // Auto-focus: title input on create, content textarea on edit
   useEffect(() => {
     if (editingNote) {
+      setTitle(editingNote.title === 'Untitled Note' ? '' : editingNote.title || '')
+      setContent(editingNote.content || '')
+      setColor(editingNote.color || 'slate')
+      setTags(editingNote.tags || [])
       contentRef.current?.focus()
     } else {
       titleRef.current?.focus()
