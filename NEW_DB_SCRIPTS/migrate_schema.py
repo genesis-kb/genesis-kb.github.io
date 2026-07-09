@@ -16,7 +16,12 @@ load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from NEW_DB_SCRIPTS.models import Base
-from app.database import get_session, _get_engine
+
+def _get_engine():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        return None
+    return create_engine(database_url)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -186,7 +191,9 @@ def run_migration(dry_run=False):
                         """), {"t_id": t_id, "summ": summary, "created_at": t.created_at})
                     
                     if t.speakers:
-                        for spk in t.speakers:
+                        speakers_list = [s.strip() for s in t.speakers.split(',')] if isinstance(t.speakers, str) else t.speakers
+                        for spk in speakers_list:
+                            if not spk: continue
                             spk_slug = slugify(spk)
                             spk_row = conn.execute(text("SELECT id FROM speakers WHERE slug = :slug"), {"slug": spk_slug}).first()
                             if not spk_row:

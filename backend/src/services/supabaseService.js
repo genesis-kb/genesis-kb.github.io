@@ -209,7 +209,7 @@ export const fetchTranscriptById = async (id) => {
  */
 export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => {
   const sanitized = searchQuery
-    .replace(/[<>"'\`;(){}[\\]\\\\]/g, '')
+    .replace(/[<>"'\`;(){}[\]\\\\]/g, '')
     .trim()
     .substring(0, 200);
 
@@ -225,6 +225,7 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
     const textVector = `to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))`;
     const titleDescVector = `to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))`;
     const summaryVector = `to_tsvector('english', COALESCE(su.content, ''))`;
+    const summaryAggVector = `to_tsvector('english', COALESCE(MAX(su.content), ''))`;
 
     const searchSql = `
       SELECT
@@ -241,7 +242,7 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
           MAX(su.content) AS summary,
           c.status,
           t.duration_seconds,
-          ts_rank(${titleDescVector} || ${textVector} || ${summaryVector}, ${ftsQuery}) AS rank,
+          ts_rank(${titleDescVector} || ${textVector} || ${summaryAggVector}, ${ftsQuery}) AS rank,
           ts_headline('english', coalesce(t.corrected_text, t.raw_text, ''), ${ftsQuery}, 'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
       FROM transcripts t
       JOIN content_items c ON t.content_item_id = c.id

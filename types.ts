@@ -46,8 +46,8 @@ export interface RawTranscript {
   raw_text: string;
   corrected_text: string | null;
   summary: string | null;
-  tags: string[] | object;
-  categories: string[] | object;
+  tags: string[];
+  categories: string[];
   topics?: string[] | object;
   status?: string;
   duration_seconds?: number;

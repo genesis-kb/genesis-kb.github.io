@@ -61,7 +61,7 @@ BEGIN
     ts_rank(
       to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))
       || to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))
-      || to_tsvector('english', COALESCE(su.content, '')),
+      || to_tsvector('english', COALESCE(MAX(su.content), '')),
       tsquery_val
     ) AS rank,
     ts_headline(
