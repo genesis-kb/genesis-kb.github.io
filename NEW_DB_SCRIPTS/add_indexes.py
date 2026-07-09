@@ -7,14 +7,15 @@ from dotenv import load_dotenv
 # Load environment variables from .env
 load_dotenv()
 
-# Add project root to path so we can import from app
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from app.database import _get_engine
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+def _get_engine():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        return None
+    return create_engine(database_url)
 
 def add_indexes():
     engine = _get_engine()

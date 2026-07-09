@@ -4,8 +4,22 @@
 -- ============================================================
 -- NOTE: This replaces the old transcripts-only FTS with indexes
 -- that work across the normalized schema (content_items, transcripts, summaries).
--- The primary GIN indexes are created by scripts/add_indexes.py.
+-- The primary GIN indexes are created here.
 -- This file provides the RPC search functions for the backend API.
+
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+
+CREATE INDEX IF NOT EXISTS idx_items_fts 
+ON content_items USING GIN(to_tsvector('english', COALESCE(title, '') || ' ' || COALESCE(description, '')));
+
+CREATE INDEX IF NOT EXISTS idx_transcripts_fts 
+ON transcripts USING GIN(to_tsvector('english', COALESCE(corrected_text, raw_text, '')))
+WHERE is_current = true;
+
+CREATE INDEX IF NOT EXISTS idx_summaries_fts 
+ON summaries USING GIN(to_tsvector('english', COALESCE(content, '')));
+
+DROP FUNCTION IF EXISTS search_transcripts_fts(text, int, int);
 
 -- 1. Create the RPC function for full-text search with ranking and snippets.
 --    Searches across content_items (title/description), transcripts (text),
@@ -61,7 +75,7 @@ BEGIN
     ts_rank(
       to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))
       || to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))
-      || to_tsvector('english', COALESCE(su.content, '')),
+      || to_tsvector('english', COALESCE(MAX(su.content), '')),
       tsquery_val
     ) AS rank,
     ts_headline(

@@ -263,7 +263,7 @@ export const fetchTranscriptById = async (id) => {
  */
 export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => {
   const sanitized = searchQuery
-    .replace(/[<>"'\`;(){}[\\]\\\\]/g, '')
+    .replace(/[<>"';(){}[\]\\%_]/g, '')
     .trim()
     .substring(0, 200);
 
@@ -279,6 +279,7 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
     const textVector = `to_tsvector('english', COALESCE(t.corrected_text, t.raw_text, ''))`;
     const titleDescVector = `to_tsvector('english', COALESCE(c.title, '') || ' ' || COALESCE(c.description, ''))`;
     const summaryVector = `to_tsvector('english', COALESCE(su.content, ''))`;
+    const summaryAggVector = `to_tsvector('english', COALESCE(MAX(su.content), ''))`;
 
     const searchSql = `
       SELECT
@@ -295,7 +296,7 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
           MAX(su.content) AS summary,
           c.status,
           t.duration_seconds,
-          ts_rank(${titleDescVector} || ${textVector} || ${summaryVector}, ${ftsQuery}) AS rank,
+          ts_rank(${titleDescVector} || ${textVector} || ${summaryAggVector}, ${ftsQuery}) AS rank,
           ts_headline('english', coalesce(t.corrected_text, t.raw_text, ''), ${ftsQuery}, 'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
       FROM transcripts t
       JOIN content_items c ON t.content_item_id = c.id
@@ -371,13 +372,23 @@ export const getCachedAIContent = async (transcriptId, type) => {
  */
 export const cacheAIContent = async (transcriptId, type, content) => {
   try {
-    await query(
-      `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (transcript_id, summary_type)
-       DO UPDATE SET content = EXCLUDED.content, created_at = NOW()`,
-      [transcriptId, type, content]
+    const existing = await query(
+      `SELECT id FROM summaries WHERE transcript_id = $1 AND summary_type = $2`,
+      [transcriptId, type]
     );
+
+    if (existing.rows.length > 0) {
+      await query(
+        `UPDATE summaries SET content = $1, created_at = NOW() WHERE transcript_id = $2 AND summary_type = $3`,
+        [content, transcriptId, type]
+      );
+    } else {
+      await query(
+        `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [transcriptId, type, content]
+      );
+    }
     logger.debug(`Cached ${type} for transcript ${transcriptId}`);
   } catch (err) {
     logger.warn('Cache store error:', { error: err.message });
