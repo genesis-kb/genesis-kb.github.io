@@ -229,7 +229,7 @@ VALUES
     'Mining: How Bitcoin mining prevents double spending & The Mathematical Lottery Securing Bitcoin',
     'Learn about Mining in Bitcoin.',
     7,
-    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/The_Mathematical_Lottery_Securing_Bitcoin_compressed.m4a',
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/How_Bitcoin_mining_prevents_double_spending.m4a',
     1921,
     'completed',
     '## Key Takeaways\n\n- Overview of Mining'
@@ -240,7 +240,7 @@ VALUES
     'The Blockchain',
     'Learn about The Blockchain in Bitcoin.',
     8,
-    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/How_Bitcoin_mining_prevents_double_spending.m4a',
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/The_Mathematical_Lottery_Securing_Bitcoin_compressed.m4a',
     97,
     'completed',
     '## Key Takeaways\n\n- Overview of The Blockchain'

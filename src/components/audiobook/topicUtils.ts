@@ -62,7 +62,7 @@ const TOPIC_THEMES: [string[], TopicTheme][] = [
   ],
   // Transactions / UTXO
   [
-    ['transaction', 'utxo', 'output', 'input', 'script', 'segwit', 'taproot'],
+    ['transaction', 'utxo', 'output', 'input', 'segwit', 'taproot'],
     {
       gradient: 'from-blue-600/80 via-indigo-700/70 to-violet-600/60',
       icon: '📊',

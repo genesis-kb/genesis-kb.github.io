@@ -46,7 +46,7 @@ export const AudioPlayer = ({
   const isCompletedRef = useRef(chapter.status === "completed");
   const onProgressSaveRef = useRef(onProgressSave);
   const onCompleteRef = useRef(onComplete);
-  const lastTimeRef = useRef(0);
+  const lastTimeRef = useRef(chapter.progress?.current_seconds || 0);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -357,7 +357,7 @@ export const AudioPlayer = ({
               aria-orientation="horizontal"
               tabIndex={0}
               aria-valuemin={0}
-              aria-valuemax={duration}
+              aria-valuemax={duration > 0 ? duration : undefined}
               aria-valuenow={currentTime}
               aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
               aria-label="Seek progress"
