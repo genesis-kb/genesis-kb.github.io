@@ -16,7 +16,6 @@ load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from NEW_DB_SCRIPTS.models import Base
-
 def _get_engine():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:

@@ -74,8 +74,8 @@ export interface SearchResult {
   speakers: string[] | string;
   event_date: string;
   loc: string;
-  tags: string[] | object;
-  categories: string[] | object;
+  tags: string[];
+  categories: string[];
   summary: string | null;
   conference?: string;
   channel_name?: string;

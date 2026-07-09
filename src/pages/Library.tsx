@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useBookmarks } from '@/hooks/useBookmarks'
 import { useNotes } from '@/hooks/useNotes'
 import { useBookmarkReconciliation } from '@/hooks/useBookmarkReconciliation'
@@ -40,6 +40,7 @@ function formatRelativeTime(savedAt: number): string {
 type TabType = 'bookmarks' | 'highlights' | 'notes'
 
 export default function Library() {
+  const navigate = useNavigate()
   const {
     bookmarks,
     highlights,
@@ -59,14 +60,21 @@ export default function Library() {
 
   const { notes, deleteNote, togglePin } = useNotes()
 
-  const [activeTab, setActiveTab] = useState<TabType>('bookmarks')
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    return totalCount === 0 && notes.length > 0 ? 'notes' : 'bookmarks'
+  })
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(
     null
   )
   const [editNoteValue, setEditNoteValue] = useState('')
 
   const sortedNotes = useMemo(
-    () => [...notes].sort((a, b) => b.updatedAt - a.updatedAt),
+    () =>
+      [...notes].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1
+        if (!a.pinned && b.pinned) return 1
+        return b.updatedAt - a.updatedAt
+      }),
     [notes]
   )
 
@@ -430,7 +438,7 @@ export default function Library() {
                   </div>
                   <NoteCard
                     note={note}
-                    onEdit={() => window.location.href = `/transcript/${note.transcriptId}?tab=notes`}
+                    onEdit={() => navigate(`/transcript/${note.transcriptId}?tab=notes`)}
                     onDelete={deleteNote}
                     onTogglePin={togglePin}
                   />

@@ -18,7 +18,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     text,
+    DDL,
 )
+from sqlalchemy import event
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 
@@ -379,6 +381,12 @@ class Transcript(Base):
             else None,
         }
 
+
+event.listen(
+    Transcript.__table__,
+    "after_create",
+    DDL("ALTER TABLE transcripts_v2 ENABLE ROW LEVEL SECURITY; CREATE POLICY \"Public access\" ON transcripts_v2 FOR SELECT USING (true);")
+)
 
 # =========================================================================
 # 6. SUMMARIES
