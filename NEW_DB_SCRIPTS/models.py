@@ -408,6 +408,7 @@ class Summary(Base):
 
     __table_args__ = (
         Index("idx_summaries_type", "summary_type"),
+        UniqueConstraint("transcript_id", "summary_type", name="uq_summaries_transcript_type"),
     )
 
     def to_dict(self):

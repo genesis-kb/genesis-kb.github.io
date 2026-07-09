@@ -372,23 +372,13 @@ export const getCachedAIContent = async (transcriptId, type) => {
  */
 export const cacheAIContent = async (transcriptId, type, content) => {
   try {
-    const existing = await query(
-      `SELECT id FROM summaries WHERE transcript_id = $1 AND summary_type = $2`,
-      [transcriptId, type]
+    await query(
+      `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (transcript_id, summary_type)
+       DO UPDATE SET content = EXCLUDED.content, created_at = NOW()`,
+      [transcriptId, type, content]
     );
-
-    if (existing.rows.length > 0) {
-      await query(
-        `UPDATE summaries SET content = $1, created_at = NOW() WHERE transcript_id = $2 AND summary_type = $3`,
-        [content, transcriptId, type]
-      );
-    } else {
-      await query(
-        `INSERT INTO summaries (transcript_id, summary_type, content, created_at)
-         VALUES ($1, $2, $3, NOW())`,
-        [transcriptId, type, content]
-      );
-    }
     logger.debug(`Cached ${type} for transcript ${transcriptId}`);
   } catch (err) {
     logger.warn('Cache store error:', { error: err.message });

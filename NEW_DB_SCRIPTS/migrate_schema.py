@@ -224,7 +224,7 @@ def run_migration(dry_run=False):
                             UPDATE content_items 
                             SET 
                                 event_date = COALESCE(event_date, :event_date),
-                                source_metadata = COALESCE(source_metadata, '{}'::jsonb) || :source_meta::jsonb,
+                                source_metadata = COALESCE(source_metadata, '{}'::jsonb) || CAST(:source_meta AS jsonb),
                                 status = CASE WHEN status IS NULL OR status = 'pending' THEN :status ELSE status END
                             WHERE id = :ci_id;
                         """), {
