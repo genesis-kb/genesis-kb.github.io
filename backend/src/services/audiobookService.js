@@ -38,9 +38,8 @@ export const listPlaylists = async ({ status, playlist_type, source, limit, offs
   const conditions = [];
   const values = [];
 
-  // Default to 'published' so draft/archived rows are never leaked
-  // unless the caller explicitly requests a different status.
-  values.push(status || 'published');
+  // Force 'published' status since this is a public API without RLS authentication.
+  values.push('published');
   conditions.push(`status = $${values.length}`);
 
   if (playlist_type) {
@@ -316,17 +315,13 @@ export const fetchUserProgress = async (userId, playlistId) => {
  * @returns {Promise<Array>}
  */
 export const fetchEpisodeProgress = async (userId, playlistId) => {
-  logger.info(`Fetching episode progress: user=${userId}, playlist=${playlistId}`);
-
-  const result = await query(
-    `SELECT up.chapter_id, up.current_seconds, up.completed, up.updated_at
-     FROM audiobooks.user_progress up
-     JOIN public.audio_episodes ep ON ep.id = up.chapter_id
-     WHERE up.user_id = $1 AND ep.playlist_id = $2`,
-    [userId, playlistId]
-  );
-
-  return result.rows;
+  const rows = await fetchUserProgress(userId, playlistId);
+  return rows.map(({ chapter_id, current_seconds, completed, updated_at }) => ({
+    chapter_id,
+    current_seconds,
+    completed,
+    updated_at
+  }));
 };
 
 /**

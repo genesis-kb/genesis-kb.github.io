@@ -74,17 +74,12 @@ export const saveProgress = async (
   completed: boolean
 ): Promise<void> => {
   const userId = getUserId();
-  try {
-    await api.post(config.endpoints.audiobookProgress, {
-      user_id: userId,
-      chapter_id: chapterId,
-      current_seconds: currentSeconds,
-      completed,
-    });
-  } catch (error) {
-    // Don't throw — progress saves should not break the user experience
-    console.error('Error saving progress:', error);
-  }
+  await api.post(config.endpoints.audiobookProgress, {
+    user_id: userId,
+    chapter_id: chapterId,
+    current_seconds: currentSeconds,
+    completed,
+  });
 };
 
 // ─── New Pipeline API Calls ────────────────────────────────

@@ -5,6 +5,7 @@
  */
 
 import pg from 'pg';
+import { APIError } from '../middleware/errorHandler.js';
 import config from '../config/index.js';
 import logger from '../config/logger.js';
 
@@ -64,7 +65,7 @@ export const query = async (text, params = []) => {
     return result;
   } catch (error) {
     logger.error('Database query failed', { error: error.message });
-    throw error;
+    throw new APIError('Database query failed', 500, 'DATABASE_ERROR');
   }
 };
 

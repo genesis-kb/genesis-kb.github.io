@@ -234,14 +234,20 @@ CREATE INDEX IF NOT EXISTS idx_audio_playlists_source
 -- Same logic as the Python curator's _slugify().
 CREATE OR REPLACE FUNCTION public.slugify(input_text TEXT)
 RETURNS TEXT AS $$
+DECLARE
+  base_slug TEXT;
 BEGIN
-  RETURN regexp_replace(
+  base_slug := regexp_replace(
     regexp_replace(
       lower(trim(input_text)),
       '[^\w\s-]', '', 'g'
     ),
     '[-\s]+', '-', 'g'
   );
+  IF base_slug = '' OR base_slug IS NULL THEN
+    base_slug := 'playlist-' || substr(md5(input_text), 1, 8);
+  END IF;
+  RETURN base_slug;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
@@ -294,7 +300,6 @@ SELECT
 FROM numbered n
 ON CONFLICT (id) DO UPDATE SET
   title               = EXCLUDED.title,
-  slug                = EXCLUDED.slug,
   description         = EXCLUDED.description,
   cover_image_url     = EXCLUDED.cover_image_url,
   difficulty_level    = EXCLUDED.difficulty_level,

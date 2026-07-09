@@ -212,9 +212,10 @@ export const saveProgress = async (req, res) => {
     throw new APIError('chapter_id must be a valid UUID', 400, 'VALIDATION_ERROR');
   }
 
-  const seconds = typeof current_seconds === 'number' && Number.isFinite(current_seconds)
-    ? Math.max(0, Math.min(current_seconds, MAX_SECONDS))
-    : 0;
+  if (typeof current_seconds !== 'number' || !Number.isFinite(current_seconds) || current_seconds < 0) {
+    throw new APIError('current_seconds must be a valid non-negative number', 400, 'VALIDATION_ERROR');
+  }
+  const seconds = Math.min(current_seconds, MAX_SECONDS);
   const isCompleted = typeof completed === 'boolean' ? completed : false;
 
   try {
