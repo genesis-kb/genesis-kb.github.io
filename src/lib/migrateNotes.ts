@@ -25,28 +25,30 @@ export function migrateNotes(raw: unknown): NotesState {
   // current version — use as-is when shape is valid
   if (isV2NotesState(data)) return data
 
-  // v1 — missing color and tags
   if (data.version === 1 && Array.isArray(data.notes)) {
     return {
       ...DEFAULT_NOTES,
-      notes: data.notes.filter((n: unknown) => n && typeof n === 'object').map((note: Record<string, unknown>) => ({
-        ...note,
-        color: note.color || 'slate',
-        tags: Array.isArray(note.tags) ? note.tags : [],
-      })),
+      notes: data.notes
+        .filter((n: unknown): n is Record<string, unknown> => typeof n === 'object' && n !== null)
+        .map((note: Record<string, unknown>) => ({
+          ...note,
+          color: note.color || 'slate',
+          tags: Array.isArray(note.tags) ? note.tags : [],
+        } as any)),
       version: 2,
     }
   }
 
-  // v0 — no version field, might have a notes array
   if (!data.version) {
     return {
       ...DEFAULT_NOTES,
-      notes: Array.isArray(data.notes) ? data.notes.filter((n: unknown) => n && typeof n === 'object').map((note: Record<string, unknown>) => ({
-        ...note,
-        color: note.color || 'slate',
-        tags: Array.isArray(note.tags) ? note.tags : [],
-      })) : [],
+      notes: Array.isArray(data.notes) ? data.notes
+        .filter((n: unknown): n is Record<string, unknown> => typeof n === 'object' && n !== null)
+        .map((note: Record<string, unknown>) => ({
+          ...note,
+          color: note.color || 'slate',
+          tags: Array.isArray(note.tags) ? note.tags : [],
+        } as any)) : [],
       version: 2,
     }
   }

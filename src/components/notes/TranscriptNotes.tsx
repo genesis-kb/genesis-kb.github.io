@@ -4,7 +4,7 @@
  * Uses useNotes hook for all business logic
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { StickyNote, Plus, Highlighter, Sparkles, Pencil, Trash2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -61,13 +61,15 @@ export function TranscriptNotes({
 
   // Auto-open editor when pendingSelectedText arrives
   const [consumedText, setConsumedText] = useState<string | undefined>(undefined)
-  if (pendingSelectedText && pendingSelectedText !== consumedText) {
-    setConsumedText(pendingSelectedText)
-    setActiveTab('notes')
-    setIsCreating(true)
-    setEditingNote(null)
-    onPendingTextConsumed?.()
-  }
+  useEffect(() => {
+    if (pendingSelectedText && pendingSelectedText !== consumedText) {
+      setConsumedText(pendingSelectedText)
+      setActiveTab('notes')
+      setIsCreating(true)
+      setEditingNote(null)
+      onPendingTextConsumed?.()
+    }
+  }, [pendingSelectedText, consumedText, onPendingTextConsumed])
 
   const handleCreate = useCallback(
     (data: { title: string; content: string; selectedText?: string; color: NoteColor; tags: string[] }) => {

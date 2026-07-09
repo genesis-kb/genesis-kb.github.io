@@ -14,11 +14,16 @@ export function useWhiteboard(transcriptId: string) {
       const stored = localStorage.getItem(`${STORAGE_KEY}-${transcriptId}`);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.nodes) setNodes(parsed.nodes);
-        if (parsed.edges) setEdges(parsed.edges);
+        setNodes(parsed.nodes || []);
+        setEdges(parsed.edges || []);
+      } else {
+        setNodes([]);
+        setEdges([]);
       }
     } catch (e) {
       console.error("Failed to load whiteboard state:", e);
+      setNodes([]);
+      setEdges([]);
     }
     setIsLoaded(true);
   }, [transcriptId]);

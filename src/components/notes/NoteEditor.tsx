@@ -44,6 +44,15 @@ export function NoteEditor({
   const [tags, setTags] = useState<string[]>(editingNote?.tags || [])
   const [showPreview, setShowPreview] = useState(false)
   
+  // Reset state when switching between notes while keeping editor open
+  useEffect(() => {
+    setTitle(editingNote?.title === 'Untitled Note' ? '' : editingNote?.title || '')
+    setContent(editingNote?.content || '')
+    setColor(editingNote?.color || 'slate')
+    setTags(editingNote?.tags || [])
+    setShowPreview(false)
+  }, [editingNote])
+  
   const contentRef = useRef<HTMLTextAreaElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
 

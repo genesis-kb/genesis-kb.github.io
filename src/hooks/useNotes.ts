@@ -17,6 +17,7 @@ import {
   Note,
   NotesState,
   CreateNoteParams,
+  DEFAULT_NOTES,
 } from '@/types/notes'
 
 const NOTES_SYNC_EVENT = 'btc-notes-sync'
@@ -53,12 +54,16 @@ export function useNotes(): UseNotesReturn {
   // Cross-tab sync - listen for storage events from other tabs
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === NOTES_STORAGE_KEY && e.newValue) {
-        try {
-          const parsed = migrateNotes(JSON.parse(e.newValue))
-          setState(parsed)
-        } catch {
-          // Corrupted data from other tab — ignore silently
+      if (e.key === NOTES_STORAGE_KEY) {
+        if (e.newValue) {
+          try {
+            const parsed = migrateNotes(JSON.parse(e.newValue))
+            setState(parsed)
+          } catch {
+            // Corrupted data from other tab — ignore silently
+          }
+        } else {
+          setState({ ...DEFAULT_NOTES })
         }
       }
     }

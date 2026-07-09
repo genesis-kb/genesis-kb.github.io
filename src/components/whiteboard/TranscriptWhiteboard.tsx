@@ -16,7 +16,7 @@ interface TranscriptWhiteboardProps {
 }
 
 export function TranscriptWhiteboard({ transcriptId }: TranscriptWhiteboardProps) {
-  const { nodes, setNodes, onNodesChange, edges, onEdgesChange, onConnect, isLoaded } = useWhiteboard(transcriptId);
+  const { nodes, setNodes, onNodesChange, edges, setEdges, onEdgesChange, onConnect, isLoaded } = useWhiteboard(transcriptId);
   const { getNotesForTranscript, deleteNote } = useNotes();
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const handleSelectionChange = useCallback(({ nodes }: { nodes: any[] }) => {
@@ -46,10 +46,11 @@ export function TranscriptWhiteboard({ transcriptId }: TranscriptWhiteboardProps
         } else {
           // New concept note added!
           changed = true;
+          const nodeCount = prevNodes.length;
           return {
             id: note.id,
             type: 'concept',
-            position: { x: 300 + (index * 40), y: 150 + (index * 40) }, // Moved away from top-left panel
+            position: { x: 300 + (nodeCount * 40), y: 150 + (nodeCount * 40) }, // Moved away from top-left panel
             data: { note },
           };
         }
@@ -73,6 +74,7 @@ export function TranscriptWhiteboard({ transcriptId }: TranscriptWhiteboardProps
     selectedNodeIds.forEach(id => {
       deleteNote(id);
     });
+    setEdges(eds => eds.filter(e => !selectedNodeIds.includes(e.source) && !selectedNodeIds.includes(e.target)));
     setSelectedNodeIds([]);
   };
 

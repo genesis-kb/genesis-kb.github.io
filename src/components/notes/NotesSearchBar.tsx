@@ -36,6 +36,7 @@ export function NotesSearchBar({
         <div className="relative flex items-center">
           <Filter className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <select
+            aria-label="Filter by color"
             value={colorFilter}
             onChange={(e) => setColorFilter(e.target.value as NoteColor | 'all')}
             className="pl-8 pr-6 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"
@@ -53,6 +54,7 @@ export function NotesSearchBar({
         <div className="relative flex items-center">
           <SortDesc className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <select
+            aria-label="Sort notes"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'az')}
             className="pl-8 pr-6 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 appearance-none cursor-pointer"

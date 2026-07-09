@@ -39,9 +39,9 @@ const TranscriptDetail = () => {
   }, [locationState.search]);
 
   type RightTabType = "none" | "notes" | "chat" | "canvas";
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
-  const [rightTab, setRightTab] = useState<RightTabType>("none");
-  const [focusMode, setFocusMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab === "notes" ? "transcript" : initialTab);
+  const [rightTab, setRightTab] = useState<RightTabType>(initialTab === "notes" ? "notes" : "none");
+  const [focusMode, setFocusMode] = useState(initialTab === "notes");
   const [isRightPanelFullScreen, setIsRightPanelFullScreen] = useState(false);
   const [isLeftPanelFullScreen, setIsLeftPanelFullScreen] = useState(false);
   const [pendingNoteText, setPendingNoteText] = useState<string | undefined>(undefined);
@@ -618,7 +618,7 @@ const TranscriptDetail = () => {
                       </div>
                     )}
 
-                    {transcript && id && focusMode && (
+                    {transcript && id && (
                       <HighlightToolbar
                         containerRef={transcriptRef}
                         transcriptId={id}
