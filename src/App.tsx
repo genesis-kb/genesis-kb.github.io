@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
+
 import { LoginModal } from "@/components/LoginModal";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -37,41 +38,41 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-      <Sonner />
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <ScrollToTop />
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/categories" element={<Topics />} />
-            <Route path="/topics" element={<Topics />} />
-            <Route path="/speakers" element={<Speakers />} />
-            <Route path="/types" element={<Types />} />
-            <Route path="/sources" element={<Sources />} />
-            <Route path="/transcript/:id" element={<TranscriptDetail />} />
-            <Route path="/search" element={<SearchResults />} />
-            <Route path="/conferences" element={<ConferenceArchive />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/audiobooks" element={<Audiobooks />} />
-            <Route path="/learning-path/:id" element={<LearningPath />} />
-            <Route path="/about" element={<About />} />
-            
-            {/* Protected Routes */}
-            <Route 
-              path="/audio" 
-              element={
-                <ProtectedRoute>
-                  <AudioGeneration />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
-        <LoginModal />
-      </BrowserRouter>
-    </TooltipProvider>
+        <Sonner />
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <ScrollToTop />
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/categories" element={<Topics />} />
+              <Route path="/topics" element={<Topics />} />
+              <Route path="/speakers" element={<Speakers />} />
+              <Route path="/types" element={<Types />} />
+              <Route path="/sources" element={<Sources />} />
+              <Route path="/transcript/:id" element={<TranscriptDetail />} />
+              <Route path="/search" element={<SearchResults />} />
+              <Route path="/conferences" element={<ConferenceArchive />} />
+              <Route path="/library" element={<Library />} />
+              <Route path="/audiobooks" element={<Audiobooks />} />
+              <Route path="/learning-path/:id" element={<LearningPath />} />
+              <Route path="/about" element={<About />} />
+              
+              {/* Protected Routes */}
+              <Route 
+                path="/audio" 
+                element={
+                  <ProtectedRoute>
+                    <AudioGeneration />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Layout>
+          <LoginModal />
+        </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

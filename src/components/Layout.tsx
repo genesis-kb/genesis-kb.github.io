@@ -79,7 +79,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
-  const { user, logout, openLoginModal } = useAuth();
+  const { user, isLoading, logout, openLoginModal } = useAuth();
   // Get bookmark count for nav badge
   const { totalCount } = useBookmarks();
 
@@ -252,7 +252,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <ThemeToggle />
 
             {/* Auth button/avatar */}
-            {isLoading ? null : user ? (
+            {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
