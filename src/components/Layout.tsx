@@ -20,6 +20,7 @@ const navItems = [
   { label: "Explore", path: "/topics" },
   { label: "Conferences", path: "/conferences" },
   { label: "Audiobooks", path: "/audiobooks" },
+  { label: "Audiobook", path: "/audio" },
   { label: "About", path: "/about" },
 ];
 
