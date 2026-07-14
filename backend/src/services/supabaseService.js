@@ -5,63 +5,9 @@
  * Note: File kept as supabaseService.js to avoid changing controller imports.
  */
 
-import pg from 'pg';
-import config from '../config/index.js';
+import { query } from './dbPool.js';
 import logger from '../config/logger.js';
 
-const { Pool } = pg;
-
-let pool = null;
-
-/**
- * Get or create the connection pool
- */
-const getPool = () => {
-  if (!pool) {
-    if (!config.database.url) {
-      logger.error('DATABASE_URL is missing. Please check your .env file.');
-      throw new Error('DATABASE_URL configuration is missing');
-    }
-
-    pool = new Pool({
-      connectionString: config.database.url,
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-      ssl: { rejectUnauthorized: false },
-    });
-
-    pool.on('error', (err) => {
-      logger.error('Unexpected pool error:', { error: err.message });
-    });
-
-    logger.info('PostgreSQL connection pool initialized');
-  }
-
-  return pool;
-};
-
-/**
- * Execute a query with timeout
- */
-const query = async (text, params = [], timeoutMs = 10000) => {
-  const client = await getPool().connect();
-  const startedAt = Date.now();
-  try {
-    await client.query(`SET statement_timeout = ${timeoutMs}`);
-    const result = await client.query(text, params);
-    const durationMs = Date.now() - startedAt;
-    if (durationMs >= 1000) {
-      logger.info('Slow database query completed', {
-        durationMs,
-        rowCount: result.rowCount,
-      });
-    }
-    return result;
-  } finally {
-    client.release();
-  }
-};
 
 /**
  * Fetch conference summaries without raw transcript text
@@ -263,7 +209,7 @@ export const fetchTranscriptById = async (id) => {
  */
 export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => {
   const sanitized = searchQuery
-    .replace(/[<>"';(){}[\]\\%_]/g, '')
+    .replace(/[<>"'\`;(){}[\\]\\\\%_]/g, '')
     .trim()
     .substring(0, 200);
 

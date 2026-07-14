@@ -16,16 +16,12 @@ load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from NEW_DB_SCRIPTS.models import Base
+from app.database import get_session, _get_engine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-def _get_engine():
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        return None
-    return create_engine(database_url)
 
 def slugify(text_val: str) -> str:
     text_val = text_val.lower().strip()

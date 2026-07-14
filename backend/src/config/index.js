@@ -62,6 +62,7 @@ const config = {
   // Database configuration (AWS RDS PostgreSQL)
   database: {
     url: process.env.DATABASE_URL || '',
+    rejectUnauthorized: process.env.DB_REJECT_UNAUTHORIZED !== 'false',
   },
 
   // Gemini AI configuration
@@ -86,7 +87,7 @@ const config = {
       ? process.env.CORS_ORIGINS.split(',')
       : ['http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
     credentials: true,
   },
 

@@ -8,7 +8,6 @@
 -- This file provides the RPC search functions for the backend API.
 
 DROP FUNCTION IF EXISTS search_transcripts_fts(text, int, int);
-
 -- 1. Create the RPC function for full-text search with ranking and snippets.
 --    Searches across content_items (title/description), transcripts (text),
 --    and summaries (content). Only searches current transcript versions.

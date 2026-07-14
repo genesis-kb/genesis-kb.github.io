@@ -248,6 +248,8 @@ The frontend build outputs to `dist/` — serve with any static file server or d
 1. All `useMemo`/`useEffect` calls must appear before any early `return` in React components
 2. Check `TranscriptDetail.tsx` — hooks must not be placed after loading/error guard returns
 
+Contributors can join our [discord](https://discord.gg/BxqCaQHFGz) server here
+
 ## License
 
 MIT
