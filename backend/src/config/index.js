@@ -40,7 +40,7 @@ const validateEnvVars = (requiredVars) => {
 };
 
 // Validate critical environment variables
-const requiredVars = ['DATABASE_URL'];
+const requiredVars = ['DATABASE_URL', 'JWT_SECRET'];
 
 // Only validate in production, allow fallbacks in development
 if (process.env.NODE_ENV === 'production') {
@@ -62,6 +62,13 @@ const config = {
   // Database configuration (AWS RDS PostgreSQL)
   database: {
     url: process.env.DATABASE_URL || '',
+  },
+
+  // Authentication (JWT)
+  auth: {
+    jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    bcryptRounds: 12,
   },
 
   // Gemini AI configuration
