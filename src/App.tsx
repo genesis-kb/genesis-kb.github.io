@@ -5,6 +5,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { LoginModal } from "@/components/LoginModal";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Topics from "./pages/Topics";
 import Speakers from "./pages/Speakers";
@@ -17,6 +20,7 @@ import Audiobooks from "./pages/Audiobooks";
 import LearningPath from "./pages/LearningPath";
 import About from "./pages/About";
 import SearchResults from "./pages/SearchResults";
+import AudioGeneration from "./pages/AudioGeneration";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -52,9 +56,21 @@ const App = () => (
             <Route path="/audiobooks" element={<Audiobooks />} />
             <Route path="/learning-path/:id" element={<LearningPath />} />
             <Route path="/about" element={<About />} />
+            
+            {/* Protected Routes */}
+            <Route 
+              path="/audio" 
+              element={
+                <ProtectedRoute>
+                  <AudioGeneration />
+                </ProtectedRoute>
+              } 
+            />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
+        <LoginModal />
       </BrowserRouter>
     </TooltipProvider>
     </AuthProvider>

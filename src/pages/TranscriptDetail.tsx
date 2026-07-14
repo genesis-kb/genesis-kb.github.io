@@ -18,6 +18,8 @@ import { formatDate, cn } from "@/lib/utils";
 import { generateSummary } from "../../services/geminiService";
 import type { RawTranscript } from "../../types";
 import { useTranscript } from "@/hooks/useTranscripts";
+import { useAuth } from "@/hooks/useAuth";
+import { LoginPrompt } from "@/components/LoginPrompt";
 
 type TabType = "summary" | "transcript" | "chat" | "audio" | "notes" | "whiteboard";
 
@@ -50,6 +52,7 @@ const TranscriptDetail = () => {
   const transcriptRef = useRef<HTMLDivElement>(null);
   const { getHighlightsForTranscript, removeHighlight, updateHighlightNote } = useBookmarks();
   const { getNotesForTranscript, addNote } = useNotes();
+  const { user } = useAuth();
   const { data, isLoading, error } = useTranscript(id);
   const transcript = data ?? null;
 
@@ -656,7 +659,11 @@ const TranscriptDetail = () => {
 
               {activeTab === "whiteboard" && id && (
                 <motion.div key="whiteboard" className={cn("w-full flex flex-col", focusMode ? "h-full" : "h-full min-h-[600px]")} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                  <TranscriptWhiteboard transcriptId={id} />
+                  {user ? (
+                    <TranscriptWhiteboard transcriptId={id} />
+                  ) : (
+                    <LoginPrompt message="Sign in to use the canvas." />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -696,12 +703,16 @@ const TranscriptDetail = () => {
                 </div>
                 <div className="flex-1 overflow-y-auto min-h-0 bg-card p-4">
                   {rightTab === "notes" && (
-                    <TranscriptNotes
-                      transcriptId={id!}
-                      transcriptTitle={transcript.title}
-                      pendingSelectedText={pendingNoteText}
-                      onPendingTextConsumed={() => setPendingNoteText(undefined)}
-                    />
+                    user ? (
+                      <TranscriptNotes
+                        transcriptId={id!}
+                        transcriptTitle={transcript.title}
+                        pendingSelectedText={pendingNoteText}
+                        onPendingTextConsumed={() => setPendingNoteText(undefined)}
+                      />
+                    ) : (
+                      <LoginPrompt message="Sign in to take and save notes alongside the transcript." />
+                    )
                   )}
                   {rightTab === "chat" && (
                     <TranscriptChat 
@@ -712,7 +723,11 @@ const TranscriptDetail = () => {
                   )}
                   {rightTab === "canvas" && (
                     <div className="h-full">
-                      <TranscriptWhiteboard transcriptId={id!} />
+                      {user ? (
+                        <TranscriptWhiteboard transcriptId={id!} />
+                      ) : (
+                        <LoginPrompt message="Sign in to use the canvas." />
+                      )}
                     </div>
                   )}
                 </div>
