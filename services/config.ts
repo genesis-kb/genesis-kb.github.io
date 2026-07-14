@@ -10,6 +10,12 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 export const config = {
   apiUrl: API_BASE_URL,
   endpoints: {
+    // Auth
+    auth: {
+      register: '/api/v1/auth/register',
+      login: '/api/v1/auth/login',
+      me: '/api/v1/auth/me',
+    },
     // Transcripts
     conferencesSummary: '/api/v1/transcripts/conferences/summary',
     conferences: '/api/v1/transcripts/conferences',

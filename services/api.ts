@@ -54,6 +54,14 @@ const createTimeoutController = (timeoutMs: number): { controller: AbortControll
 };
 
 /**
+ * Helper to get the auth header from local storage
+ */
+function getAuthHeader(): Record<string, string> {
+  const token = localStorage.getItem('btc-auth-token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
  * Make an HTTP request to the backend API
  * @param endpoint - API endpoint path
  * @param options - Request options
@@ -73,6 +81,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   try {
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...getAuthHeader(),
       ...headers,
     };
 
@@ -104,6 +113,20 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       data = await response.json();
     } else {
       throw new APIError('Invalid response format from server', 500, 'INVALID_RESPONSE');
+    }
+
+    // Handle 401 Unauthorized (invalid or expired token)
+    if (response.status === 401) {
+      localStorage.removeItem('btc-auth-token');
+      // If we are not already on the login page and it's not a login attempt
+      if (!window.location.pathname.includes('/login') && !endpoint.includes('/auth/login')) {
+        // We could redirect to a login page, but since we use a modal, 
+        // we'll just clear the token. The AuthContext or ProtectedRoute will handle the UI.
+        // For hard routes, a reload forces the ProtectedRoute to trigger.
+        if (window.location.pathname === '/audio') {
+          window.location.reload();
+        }
+      }
     }
 
     // Handle error responses
