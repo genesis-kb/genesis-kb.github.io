@@ -5,7 +5,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { LoginModal } from "@/components/LoginModal";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";

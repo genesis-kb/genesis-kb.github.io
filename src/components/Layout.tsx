@@ -275,6 +275,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     <span className="text-xs truncate max-w-full">{user.email}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer">
+                    Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />
                     Log out
