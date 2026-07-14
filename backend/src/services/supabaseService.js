@@ -468,6 +468,9 @@ export const fetchTranscriptMeta = async () => {
   return { speakers, topics, conferences, tags, stats };
 };
 
+// Named export for use by other services (e.g. authService)
+export { query };
+
 export default {
   fetchTranscriptSummaries,
   fetchAllTranscripts,
