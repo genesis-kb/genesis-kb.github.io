@@ -73,8 +73,21 @@ export const ttsLimiter = rateLimit({
   handler: createLimitHandler('tts'),
 });
 
+/**
+ * Strict limiter for authentication endpoints
+ * Protects against brute-force attacks
+ */
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: createLimitHandler('auth'),
+});
+
 export default {
   generalLimiter,
   aiLimiter,
   ttsLimiter,
+  authLimiter,
 };
