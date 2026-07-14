@@ -6,6 +6,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { SearchResult, PaginatedResponse } from "../../types";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useConferences, useSearch } from "@/hooks/useTranscripts";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navItems = [
   { label: "Explore", path: "/topics" },
@@ -70,6 +79,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
+  const { user, logout, openLoginModal } = useAuth();
   // Get bookmark count for nav badge
   const { totalCount } = useBookmarks();
 
@@ -241,11 +251,52 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
             <ThemeToggle />
 
+            {/* Auth button/avatar */}
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+                    <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-display font-bold text-xs uppercase overflow-hidden">
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.name || user.email} className="w-full h-full object-cover" />
+                      ) : (
+                        (user.name || user.email).charAt(0)
+                      )}
+                    </div>
+                    <span className="text-sm font-medium hidden sm:inline-block max-w-[100px] truncate">
+                      {user.name || user.email.split('@')[0]}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 pointer-events-none text-muted-foreground focus:bg-transparent">
+                    <span className="text-sm font-medium text-foreground">{user.name || 'User'}</span>
+                    <span className="text-xs truncate max-w-full">{user.email}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer">
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
+                onClick={openLoginModal}
+                className="hidden sm:inline-flex items-center justify-center h-9 px-4 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors whitespace-nowrap"
+              >
+                Sign In
+              </button>
+            )}
+
             {/* Mobile menu */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
-              className="md:hidden w-9 h-9 rounded-lg border border-border bg-secondary flex items-center justify-center"
+              className="md:hidden w-9 h-9 rounded-lg border border-border bg-secondary flex items-center justify-center ml-1"
             >
               {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
