@@ -4,6 +4,7 @@
  */
 
 import { Router } from 'express';
+import authRoutes from './authRoutes.js';
 import transcriptRoutes from './transcriptRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import healthRoutes from './healthRoutes.js';
@@ -12,6 +13,7 @@ import audiobookRoutes from './audiobookRoutes.js';
 const router = Router();
 
 // Mount route modules
+router.use('/auth', authRoutes);
 router.use('/transcripts', transcriptRoutes);
 router.use('/ai', aiRoutes);
 router.use('/health', healthRoutes);
@@ -25,6 +27,11 @@ router.get('/', (req, res) => {
     version: '1.0.0',
     documentation: {
       endpoints: {
+        auth: {
+          'POST /api/v1/auth/register': 'Create a new user account',
+          'POST /api/v1/auth/login': 'Authenticate and receive JWT',
+          'GET /api/v1/auth/me': 'Get current user profile (requires auth)',
+        },
         transcripts: {
           'GET /api/v1/transcripts/conferences/summary': 'Get lean conference summary',
           'GET /api/v1/transcripts': 'Get all raw transcripts',
