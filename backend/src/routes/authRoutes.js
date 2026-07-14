@@ -11,8 +11,12 @@ import { Router } from 'express';
 import * as authController from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate, validationRules } from '../middleware/validation.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
+
+// Apply strict rate limiting to auth routes
+router.use(authLimiter);
 
 // Public routes
 router.post('/register', validationRules.register, validate, authController.register);
