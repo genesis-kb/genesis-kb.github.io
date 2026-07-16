@@ -1,28 +1,14 @@
 /**
  * Audiobook Data Service
- * Handles all audiobook-related API communication
+ * Handles all audiobook-related API communication.
+ *
+ * Progress tracking now uses JWT authentication (auto-injected by api.ts).
+ * The backend extracts user identity from the token.
  */
 
 import { api, APIError } from './api';
 import config from './config';
 import type { Audiobook, AudiobookRoadmap, AudioPlaylist, PlaylistsResponse, AudioEpisode } from '../types';
-
-// ─── Anonymous User ID ─────────────────────────────────────
-
-const USER_ID_KEY = 'bitscribe_user_id';
-
-/**
- * Get or create an anonymous user ID for progress tracking.
- * Stored in localStorage — future-compatible with auth.
- */
-export const getUserId = (): string => {
-  let userId = localStorage.getItem(USER_ID_KEY);
-  if (!userId) {
-    userId = crypto.randomUUID();
-    localStorage.setItem(USER_ID_KEY, userId);
-  }
-  return userId;
-};
 
 // ─── API Calls ─────────────────────────────────────────────
 
@@ -43,15 +29,14 @@ export const getAudiobooks = async (): Promise<Audiobook[]> => {
 };
 
 /**
- * Fetch an audiobook roadmap with chapters and user progress
+ * Fetch an audiobook roadmap with chapters and user progress.
+ * User identity is extracted from the JWT by the backend (optionalAuth).
  * @param id - Audiobook series UUID
  */
 export const getAudiobookRoadmap = async (id: string): Promise<AudiobookRoadmap | null> => {
-  const userId = getUserId();
   try {
     return await api.get<AudiobookRoadmap>(
-      `${config.endpoints.audiobooks}/${id}/roadmap`,
-      { headers: { 'x-user-id': userId } }
+      `${config.endpoints.audiobooks}/${id}/roadmap`
     );
   } catch (error) {
     if (error instanceof APIError && error.statusCode === 404) {
@@ -63,7 +48,8 @@ export const getAudiobookRoadmap = async (id: string): Promise<AudiobookRoadmap 
 };
 
 /**
- * Save user progress for a chapter
+ * Save user progress for a chapter.
+ * Requires authentication — user identity comes from the JWT.
  * @param chapterId - Chapter UUID
  * @param currentSeconds - Current playback position in seconds
  * @param completed - Whether the chapter is completed
@@ -73,9 +59,7 @@ export const saveProgress = async (
   currentSeconds: number,
   completed: boolean
 ): Promise<void> => {
-  const userId = getUserId();
   await api.post(config.endpoints.audiobookProgress, {
-    user_id: userId,
     chapter_id: chapterId,
     current_seconds: currentSeconds,
     completed,
@@ -108,11 +92,8 @@ export const getPlaylists = async (params?: {
 };
 
 export const getPlaylistBySlug = async (slug: string): Promise<AudioPlaylist | null> => {
-  const userId = getUserId();
   try {
-    return await api.get<AudioPlaylist>(`${config.endpoints.playlists}/${slug}`, {
-      headers: { 'x-user-id': userId },
-    });
+    return await api.get<AudioPlaylist>(`${config.endpoints.playlists}/${slug}`);
   } catch (error) {
     if (error instanceof APIError && error.statusCode === 404) {
       console.warn(`Playlist not found: ${slug}`);
@@ -135,7 +116,6 @@ export const getEpisodeById = async (episodeId: string): Promise<AudioEpisode | 
 };
 
 export default {
-  getUserId,
   getAudiobooks,
   getAudiobookRoadmap,
   saveProgress,

@@ -9,6 +9,7 @@ import transcriptRoutes from './transcriptRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import healthRoutes from './healthRoutes.js';
 import audiobookRoutes from './audiobookRoutes.js';
+import notesRoutes from './notesRoutes.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use('/transcripts', transcriptRoutes);
 router.use('/ai', aiRoutes);
 router.use('/health', healthRoutes);
 router.use('/audiobooks', audiobookRoutes);
+router.use('/notes', notesRoutes);
 
 // API documentation endpoint
 router.get('/', (req, res) => {
@@ -52,6 +54,12 @@ router.get('/', (req, res) => {
           'GET /api/v1/audiobooks': 'List all audiobook series',
           'GET /api/v1/audiobooks/:id/roadmap': 'Get audiobook roadmap with chapters and progress',
           'POST /api/v1/audiobooks/progress': 'Save user playback progress',
+        },
+        notes: {
+          'GET /api/v1/notes': 'Fetch all notes (auth required, optional ?transcript_id=)',
+          'POST /api/v1/notes': 'Create a new note (auth required)',
+          'PUT /api/v1/notes/:id': 'Update a note (auth required)',
+          'DELETE /api/v1/notes/:id': 'Delete a note (auth required)',
         },
         health: {
           'GET /api/v1/health': 'Basic health check',
