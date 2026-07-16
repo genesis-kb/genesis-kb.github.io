@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { getUserId } from "../../../services/audiobookService";
+
 import config from "../../../services/config";
 import {
   Play,
@@ -126,27 +126,30 @@ export const AudioPlayer = ({
   useEffect(() => {
     return () => {
       const payload = JSON.stringify({
-        user_id: getUserId(),
         chapter_id: chapter.id,
         current_seconds: lastTimeRef.current,
         completed: isCompletedRef.current,
       });
 
       const url = `${config.apiUrl}${config.endpoints.audiobookProgress}`;
+      const token = localStorage.getItem('btc-auth-token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
       // Prefer sendBeacon — it's guaranteed to fire even during page unload
-      const blob = new Blob([payload], { type: 'application/json' });
-      const sent = navigator.sendBeacon?.(url, blob);
-
-      // Fallback: fetch with keepalive (same guarantee, wider header support)
-      if (!sent) {
-        fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          keepalive: true,
-        }).catch(() => { /* best-effort — nothing to do on failure */ });
-      }
+      // Note: sendBeacon doesn't support custom headers, so it will fail for auth endpoints.
+      // We rely on the fetch fallback with keepalive for authenticated requests.
+      
+      fetch(url, {
+        method: 'POST',
+        headers,
+        body: payload,
+        keepalive: true,
+      }).catch(() => { /* best-effort */ });
     };
   }, [chapter.id]);
 
