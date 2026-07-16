@@ -13,7 +13,7 @@ import { inferDifficulty, getTopicImageUrl } from "@/components/audiobook/topicU
 
 
 const Audiobooks = () => {
-  const { data: response, isLoading } = usePlaylists({ playlist_type: 'series' });
+  const { data: response, isLoading } = usePlaylists();
   const audiobooks = response?.data || [];
 
   return (
