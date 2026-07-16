@@ -53,7 +53,7 @@ VALUES
     'The Genesis Block',
     'How it all began — Satoshi Nakamoto''s whitepaper, the cypherpunk movement, and the creation of the first decentralized digital currency.',
     1,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     372,
     'pending',
     '## Key Takeaways\n\n- The Bitcoin whitepaper was published on October 31, 2008\n- The genesis block was mined on January 3, 2009\n- Satoshi embedded a headline from The Times in the coinbase transaction\n- Bitcoin solved the double-spending problem without a trusted third party'
@@ -64,7 +64,7 @@ VALUES
     'How Mining Works',
     'Understanding proof-of-work, hash functions, difficulty adjustment, and the economic incentives that secure the Bitcoin network.',
     2,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     448,
     'pending',
     '## Key Takeaways\n\n- Mining uses SHA-256 hash function to find valid block hashes\n- Difficulty adjusts every 2,016 blocks (~2 weeks)\n- Block reward halves every 210,000 blocks (~4 years)\n- Mining secures the network through economic incentives'
@@ -75,7 +75,7 @@ VALUES
     'Keys, Addresses & Wallets',
     'Public-key cryptography, seed phrases, HD wallets, and best practices for securing your bitcoin.',
     3,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     395,
     'pending',
     '## Key Takeaways\n\n- Private keys are 256-bit random numbers\n- Public keys are derived from private keys using elliptic curve multiplication\n- BIP-39 mnemonic phrases provide human-readable backups\n- Hardware wallets keep private keys offline for maximum security'
@@ -86,7 +86,7 @@ VALUES
     'Transactions Deep Dive',
     'UTXOs, inputs, outputs, scripts, fees, and how value moves across the Bitcoin network.',
     4,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     420,
     'pending',
     '## Key Takeaways\n\n- Bitcoin uses the UTXO model, not account balances\n- Each transaction consumes inputs and creates new outputs\n- Script (Bitcoin''s programming language) validates spending conditions\n- Transaction fees are the difference between inputs and outputs'
@@ -97,7 +97,7 @@ VALUES
     'The Lightning Network',
     'Layer 2 scaling, payment channels, routing, and how Lightning enables instant, low-cost Bitcoin transactions.',
     5,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     510,
     'pending',
     '## Key Takeaways\n\n- Lightning is a Layer 2 protocol built on top of Bitcoin\n- Payment channels allow off-chain transactions between two parties\n- HTLCs (Hash Time-Locked Contracts) enable multi-hop routing\n- Lightning enables micropayments and instant settlements'
@@ -108,7 +108,7 @@ VALUES
     'Privacy & The Future',
     'CoinJoin, Taproot, Schnorr signatures, and the ongoing evolution of Bitcoin''s privacy and scalability features.',
     6,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     465,
     'pending',
     '## Key Takeaways\n\n- Bitcoin is pseudonymous, not anonymous — chain analysis can link addresses\n- CoinJoin combines multiple transactions to improve privacy\n- Taproot (activated Nov 2021) makes complex scripts look like simple payments\n- Schnorr signatures enable key and signature aggregation'
@@ -273,7 +273,7 @@ VALUES
     'Transactions',
     'Learn about Transactions in Bitcoin.',
     11,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Transactions'
@@ -284,7 +284,7 @@ VALUES
     'Outputs',
     'Learn about Outputs in Bitcoin.',
     12,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Outputs'
@@ -295,7 +295,7 @@ VALUES
     'Locks',
     'Learn about Locks in Bitcoin.',
     13,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Locks'
@@ -306,7 +306,7 @@ VALUES
     'Keys & Addresses',
     'Learn about Keys & Addresses in Bitcoin.',
     14,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Keys & Addresses'
@@ -317,7 +317,7 @@ VALUES
     'Private Keys',
     'Learn about Private Keys in Bitcoin.',
     15,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Private Keys'
@@ -328,7 +328,7 @@ VALUES
     'Public Keys',
     'Learn about Public Keys in Bitcoin.',
     16,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Public Keys'
@@ -339,7 +339,7 @@ VALUES
     'Digital Signatures',
     'Learn about Digital Signatures in Bitcoin.',
     17,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of Digital Signatures'
@@ -350,7 +350,7 @@ VALUES
     'SegWit',
     'Learn about SegWit in Bitcoin.',
     18,
-    NULL,
+    'https://duqjdsbziertijeycmbk.supabase.co/storage/v1/object/public/audiobooks/Bitcoin%20Beginners%20Guide/Why_Bitcoin_wallets_hold_no_digital_coins%20(1).m4a',
     0,
     'pending',
     '## Key Takeaways\n\n- Overview of SegWit'
