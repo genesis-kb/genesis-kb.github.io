@@ -6,7 +6,7 @@
 
 import { useState, useCallback } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { StickyNote, Plus, Highlighter, Sparkles, Pencil, Trash2 } from 'lucide-react'
+import { StickyNote, Plus, Highlighter, Sparkles, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useNotes } from '@/hooks/useNotes'
 import { useBookmarks } from '@/hooks/useBookmarks'
@@ -37,6 +37,7 @@ export function TranscriptNotes({
     updateNote,
     deleteNote,
     togglePin,
+    isLoading
   } = useNotes()
 
   const { getHighlightsForTranscript, removeHighlight, updateHighlightNote } = useBookmarks()
@@ -313,8 +314,16 @@ export function TranscriptNotes({
               )}
             </AnimatePresence>
 
+            {/* Loading state */}
+            {isLoading && activeNotesList.length === 0 && !isCreating && (
+              <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                <p className="text-sm text-muted-foreground">Loading notes...</p>
+              </div>
+            )}
+
             {/* Empty state */}
-            {activeNotesList.length === 0 && !isCreating && (
+            {!isLoading && activeNotesList.length === 0 && !isCreating && (
               <div className="text-center py-12 space-y-3">
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary">
                   {activeTab === 'concepts' ? (

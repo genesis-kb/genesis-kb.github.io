@@ -57,7 +57,7 @@ export default function Library() {
     deletedBookmarkCount,
   } = useBookmarkReconciliation(bookmarks, highlights)
 
-  const { notes, deleteNote, togglePin } = useNotes()
+  const { notes, deleteNote, togglePin, isLoading: isNotesLoading } = useNotes()
 
   const [activeTab, setActiveTab] = useState<TabType>('bookmarks')
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(
@@ -83,7 +83,7 @@ export default function Library() {
   )
 
   // State: empty library
-  if (totalCount === 0 && notes.length === 0) {
+  if (totalCount === 0 && notes.length === 0 && !isNotesLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-16">
         <div className="text-center space-y-6">
@@ -412,7 +412,11 @@ export default function Library() {
         {/* Notes Tab */}
         {activeTab === 'notes' && (
           <div className="space-y-6">
-            {sortedNotes.length === 0 ? (
+            {isNotesLoading && notes.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                Loading notes...
+              </p>
+            ) : sortedNotes.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No notes yet
               </p>
@@ -440,11 +444,10 @@ export default function Library() {
           </div>
         )}
 
-        {/* Info note at bottom */}
         <div className="mt-12 pt-6 border-t border-border text-xs text-muted-foreground text-center">
           <p>
-            Bookmarks and highlights are saved in this browser only. They will
-            be lost if you clear your browser data.
+            Bookmarks and highlights are saved in this browser. Notes are
+            synced to your account when signed in.
           </p>
         </div>
       </div>
