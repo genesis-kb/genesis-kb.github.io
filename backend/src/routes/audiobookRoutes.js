@@ -13,6 +13,7 @@
 import { Router } from 'express';
 import * as audiobookController from '../controllers/audiobookController.js';
 import { asyncHandler } from '../middleware/index.js';
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.get(
  */
 router.get(
   '/playlists/:slug',
+  optionalAuth,
   asyncHandler(audiobookController.getPlaylistBySlug)
 );
 
@@ -69,6 +71,7 @@ router.get(
  */
 router.get(
   '/:id/roadmap',
+  optionalAuth,
   asyncHandler(audiobookController.getAudiobookRoadmap)
 );
 
@@ -79,6 +82,7 @@ router.get(
  */
 router.post(
   '/progress',
+  requireAuth,
   asyncHandler(audiobookController.saveProgress)
 );
 
