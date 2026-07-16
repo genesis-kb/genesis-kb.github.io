@@ -79,9 +79,8 @@ export const getPlaylistBySlug = async (req, res) => {
     throw new APIError('Invalid slug format', 400, 'VALIDATION_ERROR');
   }
 
-  // Read user ID for progress tracking
-  const rawUserId = req.headers['x-user-id'] || req.get('x-user-id') || null;
-  const userId = rawUserId && isUUID(rawUserId) ? rawUserId : null;
+  // Read user ID from JWT (set by optionalAuth middleware)
+  const userId = req.user?.id || null;
 
   logger.info(`Controller: getPlaylistBySlug: ${slug} (user=${userId})`);
 
@@ -168,8 +167,7 @@ export const getAudiobookRoadmap = async (req, res) => {
     throw new APIError('Invalid audiobook ID format', 400, 'VALIDATION_ERROR');
   }
 
-  const rawUserId = req.headers['x-user-id'] || req.get('x-user-id') || null;
-  const userId = rawUserId && isUUID(rawUserId) ? rawUserId : null;
+  const userId = req.user?.id || null;
 
   logger.info(`Controller: Getting audiobook roadmap: ${id} (user=${userId})`);
 
@@ -203,11 +201,9 @@ export const getAudiobookRoadmap = async (req, res) => {
  * Body: { user_id, chapter_id, current_seconds, completed }
  */
 export const saveProgress = async (req, res) => {
-  const { user_id, chapter_id, current_seconds, completed } = req.body;
+  const { chapter_id, current_seconds, completed } = req.body;
+  const userId = req.user.id;
 
-  if (!isUUID(user_id)) {
-    throw new APIError('user_id must be a valid UUID', 400, 'VALIDATION_ERROR');
-  }
   if (!isUUID(chapter_id)) {
     throw new APIError('chapter_id must be a valid UUID', 400, 'VALIDATION_ERROR');
   }
@@ -219,7 +215,7 @@ export const saveProgress = async (req, res) => {
   const isCompleted = typeof completed === 'boolean' ? completed : false;
 
   try {
-    await audiobookService.upsertProgress(user_id, chapter_id, seconds, isCompleted);
+    await audiobookService.upsertProgress(userId, chapter_id, seconds, isCompleted);
   } catch (error) {
     // 23503 is Postgres foreign_key_violation code
     if (error.code === '23503') {

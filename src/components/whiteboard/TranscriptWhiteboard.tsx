@@ -17,7 +17,7 @@ interface TranscriptWhiteboardProps {
 
 export function TranscriptWhiteboard({ transcriptId }: TranscriptWhiteboardProps) {
   const { nodes, setNodes, onNodesChange, edges, onEdgesChange, onConnect, isLoaded } = useWhiteboard(transcriptId);
-  const { getNotesForTranscript, deleteNote } = useNotes();
+  const { getNotesForTranscript, deleteNote, isLoading: isNotesLoading } = useNotes();
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const handleSelectionChange = useCallback(({ nodes }: { nodes: any[] }) => {
     setSelectedNodeIds(nodes.map(n => n.id));
@@ -76,7 +76,7 @@ export function TranscriptWhiteboard({ transcriptId }: TranscriptWhiteboardProps
     setSelectedNodeIds([]);
   };
 
-  if (!isLoaded) return <div className="w-full h-full min-h-[600px] flex items-center justify-center">Loading whiteboard...</div>;
+  if (!isLoaded || isNotesLoading) return <div className="w-full h-full min-h-[600px] flex items-center justify-center">Loading whiteboard...</div>;
 
   return (
     <div style={{ width: '100%', height: '600px' }} className="rounded-xl border border-border bg-card overflow-hidden relative">

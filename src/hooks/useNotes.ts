@@ -1,200 +1,147 @@
 /**
  * Core hook for Notes management
  * All business logic lives here - components are pure rendering layers
- * Handles persistence, cross-tab sync, and all mutations
- * Mirrors the pattern in useBookmarks.ts
+ * Backed by the authenticated Notes API — requires login.
+ * Uses React Query for data fetching and cache management.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  noteStore,
-  NOTES_STORAGE_KEY,
-  isNoteStorePersistent,
-} from '@/lib/noteStore'
-import { migrateNotes } from '@/lib/migrateNotes'
-import {
+import { notesApi } from '../../services/notesService'
+import { useAuth } from './useAuth'
+import type {
   Note,
-  NotesState,
   CreateNoteParams,
 } from '@/types/notes'
 
-const NOTES_SYNC_EVENT = 'btc-notes-sync'
+const NOTES_QUERY_KEY = ['notes'] as const
 
 export interface UseNotesReturn {
   notes: Note[]
   getNotesForTranscript: (transcriptId: string) => Note[]
-  addNote: (params: CreateNoteParams) => string
+  addNote: (params: CreateNoteParams) => void
   updateNote: (id: string, updates: Partial<Pick<Note, 'title' | 'content' | 'color' | 'tags' | 'isConcept' | 'position'>>) => void
   deleteNote: (id: string) => void
   togglePin: (id: string) => void
   noteCount: number
-  isPersistent: boolean
+  isLoading: boolean
 }
 
 export function useNotes(): UseNotesReturn {
-  // Lazy initializer - load from storage once on mount
-  const [state, setState] = useState<NotesState>(() => noteStore.load())
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
 
-  // Persist to storage whenever state changes
-  useEffect(() => {
-    const persisted = noteStore.save(state)
-    if (persisted !== state) {
-      setState(persisted)
-      return
-    }
+  // ─── Query ─────────────────────────────────────────────────
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: NOTES_QUERY_KEY,
+    queryFn: () => notesApi.getAll(),
+    enabled: !!user,
+    staleTime: 30 * 1000, // 30s
+  })
 
-    // Keep multiple hook instances in the same tab synchronized
-    window.dispatchEvent(
-      new CustomEvent<NotesState>(NOTES_SYNC_EVENT, { detail: state })
-    )
-  }, [state])
+  // ─── Mutations ─────────────────────────────────────────────
 
-  // Cross-tab sync - listen for storage events from other tabs
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === NOTES_STORAGE_KEY && e.newValue) {
-        try {
-          const parsed = migrateNotes(JSON.parse(e.newValue))
-          setState(parsed)
-        } catch {
-          // Corrupted data from other tab — ignore silently
-        }
-      }
-    }
+  const createMutation = useMutation({
+    mutationFn: (params: CreateNoteParams) => notesApi.create(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY })
+      toast.success('Note saved')
+    },
+    onError: () => {
+      toast.error('Failed to save note')
+    },
+  })
 
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Pick<Note, 'title' | 'content' | 'tags' | 'isConcept' | 'pinned'>> }) =>
+      notesApi.update(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY })
+      toast.success('Note updated')
+    },
+    onError: () => {
+      toast.error('Failed to update note')
+    },
+  })
 
-  // Same-tab sync across multiple hook instances
-  useEffect(() => {
-    const onSameTabSync = (event: Event) => {
-      const nextState = (event as CustomEvent<NotesState>).detail
-      setState((prev) => (prev === nextState ? prev : nextState))
-    }
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => notesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY })
+      toast.success('Note deleted')
+    },
+    onError: () => {
+      toast.error('Failed to delete note')
+    },
+  })
 
-    window.addEventListener(NOTES_SYNC_EVENT, onSameTabSync)
-    return () => window.removeEventListener(NOTES_SYNC_EVENT, onSameTabSync)
-  }, [])
+  // ─── Stable callbacks ─────────────────────────────────────
 
   /**
    * Get all notes for a specific transcript, sorted: pinned first, then by updatedAt desc
    */
   const getNotesForTranscript = useCallback(
     (transcriptId: string) =>
-      state.notes
+      notes
         .filter((n) => n.transcriptId === transcriptId)
         .sort((a, b) => {
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
           return b.updatedAt - a.updatedAt
         }),
-    [state.notes]
+    [notes]
   )
 
   /**
-   * Create a new note — returns the generated note ID
+   * Create a new note
    */
-  const addNote = useCallback((params: CreateNoteParams): string => {
-    const now = Date.now()
-    const id = crypto.randomUUID()
-
-    const note: Note = {
-      id,
-      transcriptId: params.transcriptId,
-      transcriptTitle: params.transcriptTitle,
-      title: params.title?.trim() || 'Untitled Note',
-      content: params.content,
-      selectedText: params.selectedText,
-      paragraphRef: params.paragraphRef,
-      color: params.color || 'slate',
-      tags: params.tags || [],
-      isConcept: params.isConcept || false,
-      position: params.position,
-      pinned: false,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    setState((prev) => {
-      const nextState = {
-        ...prev,
-        notes: [...prev.notes, note],
-      };
-      noteStore.save(nextState);
-      return nextState;
-    })
-
-    toast.success('Note saved')
-    return id
-  }, [])
+  const addNote = useCallback(
+    (params: CreateNoteParams) => {
+      createMutation.mutate(params)
+    },
+    [createMutation]
+  )
 
   /**
    * Update a note's fields
    */
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, 'title' | 'content' | 'color' | 'tags' | 'isConcept' | 'position'>>) => {
-      setState((prev) => {
-        const nextState = {
-          ...prev,
-          notes: prev.notes.map((n) =>
-            n.id === id
-              ? {
-                  ...n,
-                  ...updates,
-                  title: updates.title?.trim() || n.title,
-                  updatedAt: Date.now(),
-                }
-              : n
-          ),
-        };
-        noteStore.save(nextState);
-        return nextState;
-      })
-
-      toast.success('Note updated')
+      updateMutation.mutate({ id, updates })
     },
-    []
+    [updateMutation]
   )
 
   /**
    * Delete a note by ID
    */
-  const deleteNote = useCallback((id: string) => {
-    setState((prev) => {
-      const nextState = {
-        ...prev,
-        notes: prev.notes.filter((n) => n.id !== id),
-      };
-      noteStore.save(nextState);
-      return nextState;
-    })
-
-    toast.success('Note deleted')
-  }, [])
+  const deleteNote = useCallback(
+    (id: string) => {
+      deleteMutation.mutate(id)
+    },
+    [deleteMutation]
+  )
 
   /**
    * Toggle pin state of a note
    */
-  const togglePin = useCallback((id: string) => {
-    setState((prev) => ({
-      ...prev,
-      notes: prev.notes.map((n) =>
-        n.id === id
-          ? { ...n, pinned: !n.pinned, updatedAt: Date.now() }
-          : n
-      ),
-    }))
-  }, [])
+  const togglePin = useCallback(
+    (id: string) => {
+      const note = notes.find((n) => n.id === id)
+      if (!note) return
+      updateMutation.mutate({ id, updates: { pinned: !note.pinned } })
+    },
+    [notes, updateMutation]
+  )
 
-  return {
-    notes: state.notes,
+  return useMemo(() => ({
+    notes,
     getNotesForTranscript,
     addNote,
     updateNote,
     deleteNote,
     togglePin,
-    noteCount: state.notes.length,
-    isPersistent: isNoteStorePersistent,
-  }
+    noteCount: notes.length,
+    isLoading,
+  }), [notes, getNotesForTranscript, addNote, updateNote, deleteNote, togglePin, isLoading])
 }

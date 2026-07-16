@@ -103,7 +103,7 @@ const config = {
       ? process.env.CORS_ORIGINS.split(',')
       : ['http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   },
 

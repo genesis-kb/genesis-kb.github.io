@@ -29,6 +29,9 @@ export const config = {
     tts: '/api/v1/ai/tts',
     entities: '/api/v1/ai/entities',
 
+    // Notes
+    notes: '/api/v1/notes',
+
     // Audiobooks
     audiobooks: '/api/v1/audiobooks',
     audiobookProgress: '/api/v1/audiobooks/progress',
