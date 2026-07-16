@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Claude related files
+[cC][lL][aA][uU][dD][eE].md
