@@ -39,27 +39,5 @@ CREATE TRIGGER trg_notes_updated_at
     EXECUTE FUNCTION update_notes_updated_at();
 
 
--- Audiobook Progress Table
-CREATE TABLE IF NOT EXISTS audiobook_progress (
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    transcript_id TEXT NOT NULL,
-    current_time NUMERIC DEFAULT 0,
-    is_finished BOOLEAN DEFAULT false,
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_id, transcript_id)
-);
-
--- Auto-update updated_at on row modification for audiobook_progress
-CREATE OR REPLACE FUNCTION update_audiobook_progress_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_audiobook_progress_updated_at ON audiobook_progress;
-CREATE TRIGGER trg_audiobook_progress_updated_at
-    BEFORE UPDATE ON audiobook_progress
-    FOR EACH ROW
-    EXECUTE FUNCTION update_audiobook_progress_updated_at();
+-- NOTE: Audiobook progress is handled by audiobooks.user_progress (see 001_audiobook_schema.sql).
+-- That table was extended to use UUID user_id referencing users(id).
