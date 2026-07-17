@@ -85,9 +85,22 @@ export const authLimiter = rateLimit({
   handler: createLimitHandler('auth'),
 });
 
+/**
+ * Rate limiter for user data endpoints (notes, bookmarks, highlights)
+ * More generous than AI endpoints but stricter than general API
+ */
+export const userDataLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute — enough for rapid note-taking
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: createLimitHandler('user-data'),
+});
+
 export default {
   generalLimiter,
   aiLimiter,
   ttsLimiter,
   authLimiter,
+  userDataLimiter,
 };
