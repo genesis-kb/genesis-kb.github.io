@@ -37,43 +37,79 @@ export function useNotes(): UseNotesReturn {
     queryKey: NOTES_QUERY_KEY,
     queryFn: () => notesApi.getAll(),
     enabled: !!user,
-    staleTime: 30 * 1000, // 30s
+    staleTime: 30 * 1000,  // 30s
+    gcTime: 5 * 60 * 1000, // 5min cache
   })
 
-  // ─── Mutations ─────────────────────────────────────────────
+  // ─── Mutations (with optimistic updates) ────────────────────
 
   const createMutation = useMutation({
     mutationFn: (params: CreateNoteParams) => notesApi.create(params),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY })
-      toast.success('Note saved')
+    onMutate: async (params) => {
+      await queryClient.cancelQueries({ queryKey: NOTES_QUERY_KEY })
+      const previous = queryClient.getQueryData<Note[]>(NOTES_QUERY_KEY)
+      queryClient.setQueryData<Note[]>(NOTES_QUERY_KEY, (old = []) => [
+        ...old,
+        {
+          id: crypto.randomUUID(), // temporary, replaced on settle
+          transcriptId: params.transcriptId,
+          transcriptTitle: params.transcriptTitle || '',
+          title: params.title || 'Untitled Note',
+          content: params.content,
+          selectedText: params.selectedText,
+          pinned: false,
+          color: params.color || 'slate',
+          tags: params.tags || [],
+          isConcept: params.isConcept || false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ])
+      return { previous }
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(NOTES_QUERY_KEY, context.previous)
       toast.error('Failed to save note')
     },
+    onSuccess: () => toast.success('Note saved'),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY }),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Pick<Note, 'title' | 'content' | 'tags' | 'isConcept' | 'pinned'>> }) =>
       notesApi.update(id, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY })
-      toast.success('Note updated')
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: NOTES_QUERY_KEY })
+      const previous = queryClient.getQueryData<Note[]>(NOTES_QUERY_KEY)
+      queryClient.setQueryData<Note[]>(NOTES_QUERY_KEY, (old = []) =>
+        old.map((n) => (n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n))
+      )
+      return { previous }
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(NOTES_QUERY_KEY, context.previous)
       toast.error('Failed to update note')
     },
+    onSuccess: () => toast.success('Note updated'),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY }),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => notesApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY })
-      toast.success('Note deleted')
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: NOTES_QUERY_KEY })
+      const previous = queryClient.getQueryData<Note[]>(NOTES_QUERY_KEY)
+      queryClient.setQueryData<Note[]>(NOTES_QUERY_KEY, (old = []) =>
+        old.filter((n) => n.id !== id)
+      )
+      return { previous }
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(NOTES_QUERY_KEY, context.previous)
       toast.error('Failed to delete note')
     },
+    onSuccess: () => toast.success('Note deleted'),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY }),
   })
 
   // ─── Stable callbacks ─────────────────────────────────────
