@@ -11,11 +11,13 @@
 import { Router } from 'express';
 import * as notesController from '../controllers/notesController.js';
 import { requireAuth } from '../middleware/auth.js';
+import { userDataLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// All notes routes require authentication
+// All notes routes require authentication and rate limiting
 router.use(requireAuth);
+router.use(userDataLimiter);
 
 router.get('/', notesController.getNotes);
 router.post('/', notesController.createNote);
