@@ -32,6 +32,10 @@ export const config = {
     // Notes
     notes: '/api/v1/notes',
 
+    // Bookmarks & Highlights
+    bookmarks: '/api/v1/bookmarks',
+    highlights: '/api/v1/highlights',
+
     // Audiobooks
     audiobooks: '/api/v1/audiobooks',
     audiobookProgress: '/api/v1/audiobooks/progress',
