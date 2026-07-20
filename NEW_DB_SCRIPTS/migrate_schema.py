@@ -22,6 +22,7 @@ from app.database import get_session, _get_engine
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+
 def slugify(text_val: str) -> str:
     text_val = text_val.lower().strip()
     text_val = re.sub(r"[^\w\s-]", "", text_val)
@@ -51,6 +52,12 @@ def run_migration(dry_run=False):
                 if not dry_run:
                     logger.info("Running Base.metadata.create_all to ensure tables exist...")
                     Base.metadata.create_all(conn)
+                    conn.execute(text("ALTER TABLE transcripts ENABLE ROW LEVEL SECURITY;"))
+                    conn.execute(text("DROP POLICY IF EXISTS \"Transcripts are viewable by everyone.\" ON transcripts;"))
+                    conn.execute(text("""
+                        CREATE POLICY "Transcripts are viewable by everyone." 
+                        ON transcripts FOR SELECT USING (true);
+                    """))
                 return
 
             # 2. Rename old tables to prevent conflicts with new models
@@ -72,6 +79,12 @@ def run_migration(dry_run=False):
             if not dry_run:
                 logger.info("Creating new tables...")
                 Base.metadata.create_all(conn)
+                conn.execute(text("ALTER TABLE transcripts ENABLE ROW LEVEL SECURITY;"))
+                conn.execute(text("DROP POLICY IF EXISTS \"Transcripts are viewable by everyone.\" ON transcripts;"))
+                conn.execute(text("""
+                    CREATE POLICY "Transcripts are viewable by everyone." 
+                    ON transcripts FOR SELECT USING (true);
+                """))
             else:
                 logger.info("DRY RUN: Base.metadata.create_all(conn)")
 
@@ -165,13 +178,57 @@ def run_migration(dry_run=False):
                     
                     if not content_item_id:
                         ext_id = video_id if video_id else f"manual-{t_id}"
+                        source_meta = {
+                            "loc": getattr(t, 'loc', None),
+                            "tags": getattr(t, 'tags', None),
+                            "categories": getattr(t, 'categories', None)
+                        }
+                        source_meta = {k: v for k, v in source_meta.items() if v is not None}
                         row = conn.execute(text("""
-                            INSERT INTO content_items (source_id, external_id, title, content_type, url, status)
-                            VALUES (:s_id, :ext_id, :title, 'video', :url, 'transcribed')
-                            ON CONFLICT (source_id, external_id) DO UPDATE SET title = EXCLUDED.title
+                            INSERT INTO content_items (
+                                source_id, external_id, title, content_type, url, 
+                                status, event_date, source_metadata
+                            )
+                            VALUES (
+                                :s_id, :ext_id, :title, 'video', :url, 
+                                :status, :event_date, :source_meta
+                            )
+                            ON CONFLICT (source_id, external_id) DO UPDATE SET 
+                                title = EXCLUDED.title,
+                                event_date = COALESCE(content_items.event_date, EXCLUDED.event_date),
+                                source_metadata = COALESCE(content_items.source_metadata, '{}'::jsonb) || EXCLUDED.source_metadata,
+                                status = EXCLUDED.status
                             RETURNING id;
-                        """), {"s_id": manual_source_id, "ext_id": ext_id, "title": t.title or 'Unknown', "url": t.media_url}).first()
+                        """), {
+                            "s_id": manual_source_id, 
+                            "ext_id": ext_id, 
+                            "title": t.title or 'Unknown', 
+                            "url": t.media_url,
+                            "status": getattr(t, 'status', 'transcribed'),
+                            "event_date": getattr(t, 'event_date', None),
+                            "source_meta": json.dumps(source_meta)
+                        }).first()
                         content_item_id = row[0]
+                    else:
+                        source_meta = {
+                            "loc": getattr(t, 'loc', None),
+                            "tags": getattr(t, 'tags', None),
+                            "categories": getattr(t, 'categories', None)
+                        }
+                        source_meta = {k: v for k, v in source_meta.items() if v is not None}
+                        conn.execute(text("""
+                            UPDATE content_items 
+                            SET 
+                                event_date = COALESCE(event_date, :event_date),
+                                source_metadata = COALESCE(source_metadata, '{}'::jsonb) || CAST(:source_meta AS jsonb),
+                                status = CASE WHEN status IS NULL OR status = 'pending' THEN :status ELSE status END
+                            WHERE id = :ci_id;
+                        """), {
+                            "event_date": getattr(t, 'event_date', None),
+                            "source_meta": json.dumps(source_meta),
+                            "status": getattr(t, 'status', 'transcribed'),
+                            "ci_id": content_item_id
+                        })
 
                     conn.execute(text("""
                         INSERT INTO transcripts (id, content_item_id, is_current, version, raw_text, corrected_text, created_at)
@@ -186,7 +243,9 @@ def run_migration(dry_run=False):
                         """), {"t_id": t_id, "summ": summary, "created_at": t.created_at})
                     
                     if t.speakers:
-                        for spk in t.speakers:
+                        speakers_list = [s.strip() for s in t.speakers.split(',')] if isinstance(t.speakers, str) else t.speakers
+                        for spk in speakers_list:
+                            if not spk: continue
                             spk_slug = slugify(spk)
                             spk_row = conn.execute(text("SELECT id FROM speakers WHERE slug = :slug"), {"slug": spk_slug}).first()
                             if not spk_row:

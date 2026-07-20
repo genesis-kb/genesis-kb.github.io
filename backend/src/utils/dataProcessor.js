@@ -186,7 +186,7 @@ export const transformToConferences = (rows, options = {}) => {
       conference: typeof (row.conference || row.channel_name || '') === 'string'
         ? (row.conference || row.channel_name || '').trim()
         : '',
-      duration: row.duration_seconds ? `${Math.floor(row.duration_seconds / 60)}:${(row.duration_seconds % 60).toString().padStart(2, '0')}` : 'N/A',
+      duration: row.duration_seconds != null ? `${Math.floor(row.duration_seconds / 60)}:${(row.duration_seconds % 60).toString().padStart(2, '0')}` : 'N/A',
       date: formattedDate,
       transcript: useSummaryTranscript
         ? row.summary || ''
