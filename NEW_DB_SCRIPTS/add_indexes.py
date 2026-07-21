@@ -10,7 +10,11 @@ load_dotenv()
 # Add project root to path so we can import from app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.database import _get_engine
+def _get_engine():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        return None
+    return create_engine(database_url)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -36,6 +40,7 @@ def add_indexes():
         "CREATE INDEX IF NOT EXISTS idx_items_status ON content_items(status);",
         "CREATE INDEX IF NOT EXISTS idx_items_type ON content_items(content_type);",
         "CREATE INDEX IF NOT EXISTS idx_items_published ON content_items(published_at DESC);",
+        "CREATE INDEX IF NOT EXISTS idx_items_event_date ON content_items(event_date DESC NULLS LAST);",
         "CREATE INDEX IF NOT EXISTS idx_items_technical ON content_items(technical_score) WHERE technical_score >= 4;",
         
         # content_items FTS (Titles & Descriptions)
