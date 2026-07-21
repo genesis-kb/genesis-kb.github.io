@@ -209,7 +209,7 @@ export const fetchTranscriptById = async (id) => {
  */
 export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => {
   const sanitized = searchQuery
-    .replace(/[<>"'\`;(){}[\]\\\\]/g, '')
+    .replace(/[<>"'\`;(){}[\\]\\\\%_]/g, '')
     .trim()
     .substring(0, 200);
 

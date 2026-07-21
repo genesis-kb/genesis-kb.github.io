@@ -20,6 +20,7 @@ def _get_engine():
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+
 def add_indexes():
     engine = _get_engine()
     if not engine:
