@@ -16,8 +16,8 @@ export const register = asyncHandler(async (req, res) => {
   const { email, password, name } = req.body;
 
   // Input validation
-  if (!email || !password) {
-    throw new APIError('Email and password are required', 400, 'VALIDATION_ERROR');
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+    throw new APIError('Email and password must be valid strings', 400, 'VALIDATION_ERROR');
   }
 
   // Basic email format check
@@ -53,8 +53,8 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    throw new APIError('Email and password are required', 400, 'VALIDATION_ERROR');
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+    throw new APIError('Email and password must be valid strings', 400, 'VALIDATION_ERROR');
   }
 
   try {
