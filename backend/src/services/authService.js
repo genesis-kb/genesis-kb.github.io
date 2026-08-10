@@ -36,12 +36,23 @@ export const registerUser = async (email, password, name) => {
   const hashedPassword = await bcrypt.hash(password, config.auth.bcryptRounds);
 
   // Insert user
-  const result = await query(
-    `INSERT INTO users (email, password, name)
-     VALUES ($1, $2, $3)
-     RETURNING id, email, name, avatar_url, created_at`,
-    [email.toLowerCase().trim(), hashedPassword, name?.trim() || null]
-  );
+  let result;
+  try {
+    result = await query(
+      `INSERT INTO users (email, password, name)
+       VALUES ($1, $2, $3)
+       RETURNING id, email, name, avatar_url, created_at`,
+      [email.toLowerCase().trim(), hashedPassword, name?.trim() || null]
+    );
+  } catch (err) {
+    if (err.code === '23505') {
+      const error = new Error('Email already registered');
+      error.statusCode = 409;
+      error.code = 'EMAIL_EXISTS';
+      throw error;
+    }
+    throw err;
+  }
 
   const user = result.rows[0];
   const token = generateToken(user);
