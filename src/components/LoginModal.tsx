@@ -101,7 +101,7 @@ export function LoginModal() {
 
   return (
     <Dialog open={isLoginModalOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[440px] p-0 gap-0 max-h-[90vh] overflow-y-auto">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle className="font-display text-xl">
             Welcome to BitScribe
@@ -139,6 +139,8 @@ export function LoginModal() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4"
+                  role="alert"
+                  aria-live="assertive"
                 >
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{error}</span>
@@ -186,7 +188,7 @@ export function LoginModal() {
                       type="button"
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      tabIndex={-1}
+                      aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
                     >
                       {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -271,7 +273,7 @@ export function LoginModal() {
                       type="button"
                       onClick={() => setShowRegPassword(!showRegPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      tabIndex={-1}
+                      aria-label={showRegPassword ? 'Hide password' : 'Show password'}
                     >
                       {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>

@@ -32,11 +32,11 @@ const verifyToken = (token) => {
 export const requireAuth = (req, _res, next) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
     throw new APIError('Authentication required', 401, 'UNAUTHORIZED');
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   req.user = verifyToken(token);
   next();
 };
