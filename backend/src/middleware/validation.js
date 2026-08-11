@@ -38,6 +38,46 @@ export const validate = (req, res, next) => {
  * Validation rules for different endpoints
  */
 export const validationRules = {
+  // Auth validation rules
+  register: [
+    body('email')
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+      .isString()
+      .withMessage('Password must be a string')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters')
+      .isLength({ max: 72 })
+      .withMessage('Password must be at most 72 characters'),
+    body('name')
+      .optional()
+      .isString()
+      .withMessage('Name must be a string')
+      .isLength({ min: 2, max: 50 })
+      .withMessage('Name must be between 2 and 50 characters')
+      .trim(),
+  ],
+
+  login: [
+    body('email')
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+      .isString()
+      .withMessage('Password must be a string'),
+  ],
+
   // Transcript ID parameter
   transcriptId: [
     param('id')
