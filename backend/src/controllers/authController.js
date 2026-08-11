@@ -6,6 +6,7 @@
 
 import { asyncHandler, APIError } from '../middleware/errorHandler.js';
 import * as authService from '../services/authService.js';
+import { sendSuccess, sendCreated } from '../utils/responseHelper.js';
 
 /**
  * POST /api/v1/auth/register
@@ -15,28 +16,9 @@ import * as authService from '../services/authService.js';
 export const register = asyncHandler(async (req, res) => {
   const { email, password, name } = req.body;
 
-  // Input validation
-  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-    throw new APIError('Email and password must be valid strings', 400, 'VALIDATION_ERROR');
-  }
-
-  // Basic email format check
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new APIError('Invalid email format', 400, 'VALIDATION_ERROR');
-  }
-
-  if (password.length < 8) {
-    throw new APIError('Password must be at least 8 characters', 400, 'VALIDATION_ERROR');
-  }
-
-  if (password.length > 128) {
-    throw new APIError('Password must be at most 128 characters', 400, 'VALIDATION_ERROR');
-  }
-
   try {
     const result = await authService.registerUser(email, password, name);
-    res.status(201).json({ success: true, data: result });
+    sendCreated(res, result);
   } catch (err) {
     if (err.statusCode === 409) {
       throw new APIError(err.message, 409, err.code || 'EMAIL_EXISTS');
@@ -53,13 +35,9 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-    throw new APIError('Email and password must be valid strings', 400, 'VALIDATION_ERROR');
-  }
-
   try {
     const result = await authService.loginUser(email, password);
-    res.json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (err) {
     if (err.statusCode === 401) {
       throw new APIError(err.message, 401, err.code || 'INVALID_CREDENTIALS');
@@ -80,5 +58,5 @@ export const me = asyncHandler(async (req, res) => {
     throw new APIError('User not found', 404, 'NOT_FOUND');
   }
 
-  res.json({ success: true, data: { user } });
+  sendSuccess(res, { user });
 });

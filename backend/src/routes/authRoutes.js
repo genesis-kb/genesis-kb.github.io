@@ -10,12 +10,13 @@
 import { Router } from 'express';
 import * as authController from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
+import { validate, validationRules } from '../middleware/validation.js';
 
 const router = Router();
 
 // Public routes
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/register', validationRules.register, validate, authController.register);
+router.post('/login', validationRules.login, validate, authController.login);
 
 // Protected routes
 router.get('/me', requireAuth, authController.me);
