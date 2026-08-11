@@ -252,7 +252,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <ThemeToggle />
 
             {/* Auth button/avatar */}
-            {user ? (
+            {isLoading ? null : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
@@ -274,9 +274,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     <span className="text-xs truncate max-w-full">{user.email}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer">
-                    Profile
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />
                     Log out
@@ -344,6 +341,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     </span>
                   )}
                 </Link>
+                {!isLoading && !user && (
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      openLoginModal();
+                    }}
+                    className="mt-2 w-full flex items-center justify-center h-10 rounded-md bg-primary text-primary-foreground font-medium text-sm transition-colors hover:bg-primary/90"
+                  >
+                    Sign In
+                  </button>
+                )}
               </nav>
             </motion.div>
           )}

@@ -22,8 +22,10 @@ export const authApi = {
   /**
    * Get the current user's profile (requires valid JWT).
    */
-  me: () =>
-    api.get<{ user: User }>('/api/v1/auth/me'),
+  me: (token: string) =>
+    api.get<{ user: User }>('/api/v1/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
 };
 
 export default authApi;

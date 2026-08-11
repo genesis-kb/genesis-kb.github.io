@@ -77,7 +77,7 @@ const config = {
   // Authentication (JWT)
   auth: {
     jwtSecret: process.env.JWT_SECRET,
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
     bcryptRounds: 12,
   },
 
