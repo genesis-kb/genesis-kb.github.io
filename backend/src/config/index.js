@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import crypto from 'crypto';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
