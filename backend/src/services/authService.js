@@ -10,6 +10,14 @@ import config from '../config/index.js';
 import logger from '../config/logger.js';
 import { query } from './supabaseService.js';
 
+let dummyHash = null;
+const getDummyHash = async () => {
+  if (!dummyHash) {
+    dummyHash = await bcrypt.hash('dummy-password', config.auth.bcryptRounds);
+  }
+  return dummyHash;
+};
+
 /**
  * Register a new user with email and password.
  * @param {string} email - User email
@@ -19,30 +27,19 @@ import { query } from './supabaseService.js';
  * @throws {Error} 409 if email already registered
  */
 export const registerUser = async (email, password, name) => {
-  // Check if user already exists
-  const existing = await query(
-    'SELECT id FROM users WHERE email = $1',
-    [email.toLowerCase().trim()]
-  );
-
-  if (existing.rows.length > 0) {
-    const error = new Error('Email already registered');
-    error.statusCode = 409;
-    error.code = 'EMAIL_EXISTS';
-    throw error;
-  }
 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, config.auth.bcryptRounds);
 
   // Insert user
+  const safeName = typeof name === 'string' ? name.trim() : null;
   let result;
   try {
     result = await query(
       `INSERT INTO users (email, password, name)
        VALUES ($1, $2, $3)
        RETURNING id, email, name, avatar_url, created_at`,
-      [email.toLowerCase().trim(), hashedPassword, name?.trim() || null]
+      [email.toLowerCase().trim(), hashedPassword, safeName]
     );
   } catch (err) {
     if (err.code === '23505') {
@@ -57,7 +54,7 @@ export const registerUser = async (email, password, name) => {
   const user = result.rows[0];
   const token = generateToken(user);
 
-  logger.info(`New user registered: ${user.email}`);
+  logger.info(`New user registered: ${user.id}`);
 
   return {
     user: sanitizeUser(user),
@@ -78,15 +75,16 @@ export const loginUser = async (email, password) => {
     [email.toLowerCase().trim()]
   );
 
-  if (result.rows.length === 0) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401;
-    error.code = 'INVALID_CREDENTIALS';
-    throw error;
-  }
+  let user, isValid;
 
-  const user = result.rows[0];
-  const isValid = await bcrypt.compare(password, user.password);
+  if (result.rows.length === 0) {
+    // Defend against timing attacks by doing identical password hash work
+    await bcrypt.compare(password, await getDummyHash());
+    isValid = false;
+  } else {
+    user = result.rows[0];
+    isValid = await bcrypt.compare(password, user.password);
+  }
 
   if (!isValid) {
     const error = new Error('Invalid email or password');
@@ -97,7 +95,7 @@ export const loginUser = async (email, password) => {
 
   const token = generateToken(user);
 
-  logger.info(`User logged in: ${user.email}`);
+  logger.info(`User logged in: ${user.id}`);
 
   return {
     user: sanitizeUser(user),
