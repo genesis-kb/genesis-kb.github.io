@@ -76,6 +76,11 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       ...headers,
     };
 
+    const token = localStorage.getItem('btc-auth-token');
+    if (token && !requestHeaders['Authorization']) {
+      requestHeaders['Authorization'] = `Bearer ${token}`;
+    }
+
     const requestOptions: RequestInit = {
       method,
       headers: requestHeaders,

@@ -27,6 +27,7 @@ const getDummyHash = async () => {
  * @throws {Error} 409 if email already registered
  */
 export const registerUser = async (email, password, name) => {
+  // Email uniqueness is enforced by the unique constraint on the database
 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, config.auth.bcryptRounds);
