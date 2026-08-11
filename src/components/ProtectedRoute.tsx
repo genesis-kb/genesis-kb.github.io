@@ -5,7 +5,7 @@
  * While loading, it displays a loading spinner.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,10 +18,12 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, redirectTo = '/' }: ProtectedRouteProps) {
   const { user, isLoading, openLoginModal, isLoginModalOpen } = useAuth();
   const navigate = useNavigate();
+  const modalWasOpened = useRef(false);
 
   useEffect(() => {
     // If we've finished loading and there is no user, trigger the login modal
-    if (!isLoading && !user && !isLoginModalOpen) {
+    if (!isLoading && !user && !isLoginModalOpen && !modalWasOpened.current) {
+      modalWasOpened.current = true;
       openLoginModal();
     }
   }, [isLoading, user, openLoginModal, isLoginModalOpen]);
@@ -29,7 +31,7 @@ export function ProtectedRoute({ children, redirectTo = '/' }: ProtectedRoutePro
   useEffect(() => {
     // If the modal was opened by this route but then closed without a successful login,
     // redirect them away to avoid being stuck on an empty/unauthorized page.
-    if (!isLoading && !user && !isLoginModalOpen) {
+    if (!isLoading && !user && !isLoginModalOpen && modalWasOpened.current) {
       navigate(redirectTo, { replace: true });
     }
   }, [isLoginModalOpen, isLoading, user, navigate, redirectTo]);
