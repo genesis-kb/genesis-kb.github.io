@@ -63,7 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         // Temporarily inject the token header for this request
-        const data = await authApi.me();
+        const data = await authApi.me(token);
         setUser(data.user);
       } catch {
         // Token is invalid or expired — clear silently

@@ -147,6 +147,45 @@ export const validationRules = {
       .withMessage('Text must be between 1 and 5000 characters')
       .trim(),
   ],
+
+  // Auth Registration
+  authRegister: [
+    body('email')
+      .isString()
+      .withMessage('Email must be a string')
+      .trim()
+      .isEmail()
+      .withMessage('Invalid email format')
+      .isLength({ max: 255 })
+      .withMessage('Email is too long'),
+    body('password')
+      .isString()
+      .withMessage('Password must be a string')
+      .isLength({ min: 8, max: 128 })
+      .withMessage('Password must be between 8 and 128 characters'),
+    body('name')
+      .optional()
+      .isString()
+      .withMessage('Name must be a string')
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Name is too long'),
+  ],
+
+  // Auth Login
+  authLogin: [
+    body('email')
+      .isString()
+      .withMessage('Email must be a string')
+      .trim()
+      .notEmpty()
+      .withMessage('Email is required'),
+    body('password')
+      .isString()
+      .withMessage('Password must be a string')
+      .notEmpty()
+      .withMessage('Password is required'),
+  ],
 };
 
 export default {
