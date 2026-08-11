@@ -40,11 +40,19 @@ const validateEnvVars = (requiredVars) => {
 };
 
 // Validate critical environment variables
-const requiredVars = ['DATABASE_URL', 'JWT_SECRET', 'GEMINI_API_KEY'];
+const requiredVars = ['DATABASE_URL', 'GEMINI_API_KEY'];
 
 // Only validate in production, allow fallbacks in development
 if (process.env.NODE_ENV === 'production') {
-  validateEnvVars(requiredVars);
+  validateEnvVars([...requiredVars, 'JWT_SECRET']);
+} else {
+  validateEnvVars(['JWT_SECRET']); // Always require JWT_SECRET to prevent forging
+}
+
+// Reject placeholder secrets in all environments
+const invalidSecrets = ['your-jwt-secret-min-32-chars', 'dev-secret-change-in-production'];
+if (invalidSecrets.includes(process.env.JWT_SECRET)) {
+  throw new Error('JWT_SECRET must be changed from the default example values.');
 }
 
 /**
@@ -67,7 +75,7 @@ const config = {
 
   // Authentication (JWT)
   auth: {
-    jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
+    jwtSecret: process.env.JWT_SECRET,
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
     bcryptRounds: 12,
   },
