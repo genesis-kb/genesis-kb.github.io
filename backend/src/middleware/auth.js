@@ -26,17 +26,29 @@ const verifyToken = (token) => {
 };
 
 /**
+ * Extracts a Bearer token from the Authorization header.
+ * @param {Object} headers - Express request headers object
+ * @returns {string|null} The token string, or null if not found
+ */
+const extractBearerToken = (headers) => {
+  const authHeader = headers.authorization;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    return authHeader.replace(/^Bearer\s+/i, '').trim();
+  }
+  return null;
+};
+
+/**
  * requireAuth — blocks unauthenticated requests with 401.
  * Expects header: Authorization: Bearer <token>
  */
 export const requireAuth = (req, _res, next) => {
-  const authHeader = req.headers.authorization;
+  const token = extractBearerToken(req.headers);
 
-  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
+  if (!token) {
     throw new APIError('Authentication required', 401, 'UNAUTHORIZED');
   }
 
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   req.user = verifyToken(token);
   next();
 };
@@ -47,10 +59,9 @@ export const requireAuth = (req, _res, next) => {
  * Fails silently for missing/invalid tokens.
  */
 export const optionalAuth = (req, _res, next) => {
-  const authHeader = req.headers.authorization;
+  const token = extractBearerToken(req.headers);
 
-  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (token) {
     try {
       req.user = verifyToken(token);
     } catch (err) {
