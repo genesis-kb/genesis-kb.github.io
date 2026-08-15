@@ -40,3 +40,23 @@ export const requireAuth = (req, _res, next) => {
   req.user = verifyToken(token);
   next();
 };
+
+/**
+ * optionalAuth — does not block unauthenticated requests.
+ * Parses the token and sets req.user if present and valid.
+ * Fails silently for missing/invalid tokens.
+ */
+export const optionalAuth = (req, _res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    try {
+      req.user = verifyToken(token);
+    } catch (err) {
+      // Ignore token errors for optional auth (e.g. expired or invalid)
+    }
+  }
+
+  next();
+};

@@ -31,7 +31,7 @@ export const getPool = () => {
       connectionTimeoutMillis: 10000,
       ssl: config.server.isProduction
         ? { rejectUnauthorized: config.database.rejectUnauthorized }
-        : false,
+        : { rejectUnauthorized: false }, // Supabase requires SSL even in development
       options: '-c statement_timeout=10000',
     });
 
