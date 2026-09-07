@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { chatWithTranscript } from "../../services/geminiService";
@@ -10,7 +10,15 @@ interface Message {
   content: string;
 }
 
-export const TranscriptChat = ({ transcript }: { transcript: RawTranscript }) => {
+export const TranscriptChat = ({ 
+  transcript,
+  pendingPrompt,
+  onPromptConsumed,
+}: { 
+  transcript: RawTranscript
+  pendingPrompt?: string
+  onPromptConsumed?: () => void
+}) => {
   const transcriptText = transcript.corrected_text || transcript.raw_text || "";
   const speakerNames = Array.isArray(transcript.speakers)
     ? transcript.speakers.join(" and ")
@@ -30,6 +38,13 @@ export const TranscriptChat = ({ transcript }: { transcript: RawTranscript }) =>
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    if (pendingPrompt) {
+      setInput(pendingPrompt);
+      onPromptConsumed?.();
+    }
+  }, [pendingPrompt, onPromptConsumed]);
 
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;

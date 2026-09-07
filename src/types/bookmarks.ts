@@ -19,6 +19,8 @@ export interface Highlight {
   transcriptTitle: string // snapshot for display in /library
   text: string // selected passage, max 500 chars
   note?: string // optional user annotation
+  color?: string // highlight color
+  isUnderline?: boolean // if true, render as underline
   savedAt: number // Date.now()
   deleted?: boolean // true if source transcript not in cache
 }

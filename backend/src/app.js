@@ -81,7 +81,7 @@ app.use((req, res, next) => {
 // Request timestamp and timeout
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
-  
+
   // Set request timeout
   req.setTimeout(REQUEST_TIMEOUT, () => {
     logger.warn(`Request timeout: ${req.method} ${req.path}`);
@@ -95,7 +95,7 @@ app.use((req, res, next) => {
       });
     }
   });
-  
+
   next();
 });
 

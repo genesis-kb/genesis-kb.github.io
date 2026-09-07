@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import crypto from 'crypto';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,11 +41,19 @@ const validateEnvVars = (requiredVars) => {
 };
 
 // Validate critical environment variables
-const requiredVars = ['DATABASE_URL'];
+const requiredVars = ['DATABASE_URL', 'GEMINI_API_KEY'];
 
 // Only validate in production, allow fallbacks in development
 if (process.env.NODE_ENV === 'production') {
-  validateEnvVars(requiredVars);
+  validateEnvVars([...requiredVars, 'JWT_SECRET']);
+} else {
+  validateEnvVars(['JWT_SECRET']); // Always require JWT_SECRET to prevent forging
+}
+
+// Reject placeholder secrets in all environments
+const invalidSecrets = ['your-jwt-secret-min-32-chars', 'dev-secret-change-in-production'];
+if (invalidSecrets.includes(process.env.JWT_SECRET)) {
+  throw new Error('JWT_SECRET must be changed from the default example values.');
 }
 
 /**
@@ -62,6 +71,14 @@ const config = {
   // Database configuration (AWS RDS PostgreSQL)
   database: {
     url: process.env.DATABASE_URL || '',
+    rejectUnauthorized: process.env.DB_REJECT_UNAUTHORIZED !== 'false',
+  },
+
+  // Authentication (JWT)
+  auth: {
+    jwtSecret: process.env.JWT_SECRET,
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    bcryptRounds: 12,
   },
 
   // Gemini AI configuration

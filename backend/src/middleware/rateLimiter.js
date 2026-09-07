@@ -73,8 +73,34 @@ export const ttsLimiter = rateLimit({
   handler: createLimitHandler('tts'),
 });
 
+/**
+ * Strict limiter for authentication endpoints
+ * Protects against brute-force attacks
+ */
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: createLimitHandler('auth'),
+});
+
+/**
+ * Rate limiter for user data endpoints (notes, bookmarks, highlights)
+ * More generous than AI endpoints but stricter than general API
+ */
+export const userDataLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute — enough for rapid note-taking
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: createLimitHandler('user-data'),
+});
+
 export default {
   generalLimiter,
   aiLimiter,
   ttsLimiter,
+  authLimiter,
+  userDataLimiter,
 };
