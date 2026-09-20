@@ -36,18 +36,26 @@ export const detailedHealthCheck = async (req, res) => {
     geminiService.healthCheck().catch(() => false),
   ]);
 
+  // geminiHealthy is null when AI is switched off for lack of a usable key.
+  // That is a configuration choice, not a fault, so it reports as 'disabled'
+  // and is left out of overallHealthy — otherwise a key-less deployment would
+  // answer 503 on every probe and read as down to a load balancer.
+  const geminiDisabled = geminiHealthy === null;
+
   const services = {
     database: {
       status: dbHealthy ? 'healthy' : 'unhealthy',
       message: dbHealthy ? 'Connected' : 'Connection failed',
     },
-    gemini: {
-      status: geminiHealthy ? 'healthy' : 'unhealthy',
-      message: geminiHealthy ? 'API accessible' : 'API not accessible',
-    },
+    gemini: geminiDisabled
+      ? { status: 'disabled', message: 'No AI provider configured' }
+      : {
+          status: geminiHealthy ? 'healthy' : 'unhealthy',
+          message: geminiHealthy ? 'API accessible' : 'API not accessible',
+        },
   };
 
-  const overallHealthy = dbHealthy && geminiHealthy;
+  const overallHealthy = dbHealthy && (geminiDisabled || geminiHealthy);
 
   const response = {
     status: overallHealthy ? 'healthy' : 'degraded',

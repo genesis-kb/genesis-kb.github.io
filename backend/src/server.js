@@ -29,7 +29,7 @@ const server = app.listen(config.server.port, () => {
   if (config.server.isDevelopment) {
     logger.debug('Configuration:', {
       databaseUrl: config.database.url ? '✓ Set' : '✗ Missing',
-      geminiKey: config.gemini.apiKey ? '✓ Set' : '✗ Missing',
+      geminiKey: config.gemini.enabled ? '✓ Set' : '✗ Missing or placeholder — AI endpoints disabled',
       corsOrigins: config.cors.origins,
     });
   }
