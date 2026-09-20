@@ -148,6 +148,19 @@ export const validationRules = {
       .trim(),
   ],
 
+  // Entity extraction — mirrors generateSummary, which takes the same body
+  entities: [
+    body('transcript')
+      .notEmpty()
+      .withMessage('Transcript text is required')
+      .isLength({ min: 100 })
+      .withMessage('Transcript must be at least 100 characters'),
+    body('transcriptId')
+      .optional()
+      .isUUID()
+      .withMessage('Transcript ID must be a valid UUID'),
+  ],
+
   // Auth Registration
   authRegister: [
     body('email')
