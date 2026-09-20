@@ -16,8 +16,11 @@ let aiClient = null;
  */
 const getAIClient = () => {
   if (!aiClient) {
-    if (!config.gemini.apiKey) {
-      logger.error('Gemini API key is missing. Please check your .env file.');
+    // config.gemini.enabled, not apiKey: the .env.example placeholder is a
+    // non-empty string, so a truthiness check would build a client around it
+    // and only fail once Google rejected the request.
+    if (!config.gemini.enabled) {
+      logger.error('Gemini API key is missing or unfilled. Please check your .env file.');
       throw new Error('Gemini API key is not configured');
     }
 
@@ -259,9 +262,17 @@ Return ONLY valid JSON, no markdown or explanations.`;
 
 /**
  * Health check for Gemini API
- * @returns {Promise<boolean>} True if API is accessible
+ * @returns {Promise<boolean|null>} True if accessible, false if the call
+ *   failed, null if AI is disabled (no usable key configured)
  */
 export const healthCheck = async () => {
+  // A deployment with no key has AI switched off by design. Probing Google
+  // anyway would bill a request per health check and report 'unhealthy' for
+  // a server that is working exactly as configured.
+  if (!config.gemini.enabled) {
+    return null;
+  }
+
   try {
     const ai = getAIClient();
     await ai.models.generateContent({

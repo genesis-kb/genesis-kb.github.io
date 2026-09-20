@@ -40,8 +40,11 @@ const validateEnvVars = (requiredVars) => {
   }
 };
 
-// Validate critical environment variables
-const requiredVars = ['DATABASE_URL', 'GEMINI_API_KEY'];
+// Validate critical environment variables.
+// GEMINI_API_KEY is deliberately not required: a missing or placeholder key
+// disables the AI endpoints via config.gemini.enabled rather than stopping
+// the server, so a deployment can run the rest of the API without one.
+const requiredVars = ['DATABASE_URL'];
 
 // Only validate in production, allow fallbacks in development
 if (process.env.NODE_ENV === 'production') {
