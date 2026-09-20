@@ -57,6 +57,23 @@ if (invalidSecrets.includes(process.env.JWT_SECRET)) {
 }
 
 /**
+ * Decide whether a Gemini API key is usable.
+ * The .env.example placeholder ('your-gemini-api-key-here') parses as a
+ * perfectly good string, so a bare truthiness check would let the server
+ * accept AI requests and only fail once Gemini rejects the call. Treat any
+ * empty or obviously-unfilled value as "not configured" instead.
+ * @param {string} key - Raw GEMINI_API_KEY value
+ * @returns {boolean} True if the key looks like a real credential
+ */
+const isUsableApiKey = (key) => {
+  const trimmed = (key || '').trim();
+  if (!trimmed) return false;
+  return !/^your[-_]/i.test(trimmed);
+};
+
+const geminiApiKey = (process.env.GEMINI_API_KEY || '').trim();
+
+/**
  * Configuration object
  */
 const config = {
@@ -83,7 +100,10 @@ const config = {
 
   // Gemini AI configuration
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
+    apiKey: geminiApiKey,
+    // Gates the AI endpoints. False when no usable key is configured, which
+    // makes them answer 503 AI_NOT_CONFIGURED rather than attempting a call.
+    enabled: isUsableApiKey(geminiApiKey),
     models: {
       chat: 'gemini-3-flash-preview',
       tts: 'gemini-2.5-flash-preview-tts',
