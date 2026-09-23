@@ -45,12 +45,14 @@ backend/
 │   │   └── index.js            # Barrel export (includes asyncHandler)
 │   ├── routes/
 │   │   ├── transcriptRoutes.js # GET /transcripts, /conferences, /search, /:id
-│   │   ├── aiRoutes.js         # POST /summary, /chat, /tts, /entities
+│   │   ├── aiRoutes.js         # POST /summary, /chat, /entities; /tts/:transcriptId
 │   │   ├── healthRoutes.js     # GET /health, /health/detailed
 │   │   └── index.js            # Route aggregator
 │   ├── services/
 │   │   ├── supabaseService.js  # Supabase client init, CRUD, search, cache ops
 │   │   ├── aiService.js        # Provider-neutral AI ops (summary, chat, TTS, entities)
+│   │   ├── ttsAudioService.js  # Generate-once TTS audio cache (tts_audio rows)
+│   │   ├── audioStorageService.js # Private S3 bucket for TTS audio
 │   │   ├── ai/
 │   │   │   ├── bedrockProvider.js  # Bedrock Converse (text) + Polly (speech)
 │   │   │   └── geminiProvider.js   # Gemini (text + speech)
@@ -118,7 +120,9 @@ Server runs at `http://localhost:5000`.
 |--------|----------|-------------|
 | POST | `/api/v1/ai/summary` | Generate transcript summary (body ≥ 100 chars) |
 | POST | `/api/v1/ai/chat` | Chat with transcript context (message 1–2000 chars) |
-| POST | `/api/v1/ai/tts` | Convert text to speech — returns PCM audio (text 1–5000 chars) |
+| GET | `/api/v1/ai/tts/:transcriptId?source=` | Stored speech metadata, or `null` if not generated yet (auth) |
+| GET | `/api/v1/ai/tts/:transcriptId/audio?source=` | Stream stored speech as WAV (auth) |
+| POST | `/api/v1/ai/tts/:transcriptId` | Generate and store speech for a transcript; returns the stored copy if it exists (auth) |
 | POST | `/api/v1/ai/entities` | Extract entities from transcript |
 
 ### Health
@@ -263,7 +267,9 @@ Exceeded limits return `429 Too Many Requests`.
 | POST `/chat` | `message` | Required, 1–2000 chars, trimmed |
 | POST `/chat` | `transcript` | Required, min 100 chars |
 | POST `/chat` | `history` | Optional, must be array |
-| POST `/tts` | `text` | Required, 1–5000 chars, trimmed |
+| `/tts/:transcriptId` | `transcriptId` (param) | Required, valid UUID |
+| GET `/tts/:transcriptId[/audio]` | `source` (query) | Required, `transcript` or `summary` |
+| POST `/tts/:transcriptId` | `source` | Required, `transcript` or `summary` |
 
 ## Environment Variables
 
@@ -283,6 +289,8 @@ Exceeded limits return `429 Too Many Requests`.
 | `BEDROCK_MAX_TOKENS` | Output token cap per Bedrock call | No | 4096 |
 | `POLLY_VOICE_ID` | Polly voice | No | Joanna |
 | `POLLY_ENGINE` | Polly engine (`standard`, `neural`, `generative`) | No | neural |
+| `TTS_AUDIO_BUCKET` | Private S3 bucket for generated speech; unset, `/ai/tts` answers 503 `TTS_STORAGE_NOT_CONFIGURED` | For TTS | — |
+| `S3_REGION` | Region of `TTS_AUDIO_BUCKET` | No | `AWS_REGION` |
 | `GEMINI_API_KEY` | Google Gemini API key | With `gemini` | — |
 | `CORS_ORIGINS` | Allowed origins (comma-separated) | No | localhost:5173,3000 |
 | `LOG_LEVEL` | Logging level | No | info |
