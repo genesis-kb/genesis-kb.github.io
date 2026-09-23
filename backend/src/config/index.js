@@ -81,6 +81,10 @@ const awsRegion = (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || '
 const bedrockRegion = (process.env.BEDROCK_REGION || awsRegion).trim();
 const pollyRegion = (process.env.POLLY_REGION || awsRegion || bedrockRegion).trim();
 const bedrockModelId = (process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0').trim();
+// Generated speech is cached in a private S3 bucket and only ever streamed
+// through the backend to signed-in users.
+const ttsAudioBucket = (process.env.TTS_AUDIO_BUCKET || '').trim();
+const ttsAudioRegion = (process.env.S3_REGION || awsRegion).trim();
 
 const AI_PROVIDERS = ['bedrock', 'gemini', 'none'];
 
@@ -171,6 +175,14 @@ const config = {
     enabled: isAIProviderConfigured(),
     tts: {
       maxTextLength: 2000,
+      storage: {
+        bucket: ttsAudioBucket,
+        region: ttsAudioRegion,
+        prefix: 'tts-audio/',
+      },
+      // False without a bucket and region: the TTS endpoints then answer
+      // 503 TTS_STORAGE_NOT_CONFIGURED.
+      storageEnabled: Boolean(ttsAudioBucket && ttsAudioRegion),
     },
     context: {
       maxTranscriptLength: 25000,
