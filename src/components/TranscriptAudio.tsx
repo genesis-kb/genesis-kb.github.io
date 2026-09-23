@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useCallback, useEffect } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { generateSpeech, decodeAudioData } from "../../services/aiService";
+import { loadSpeechAudio } from "../../services/aiService";
 import type { RawTranscript } from "../../types";
 
 export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) => {
@@ -23,8 +23,6 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
   const speakerNames = Array.isArray(transcript.speakers)
     ? transcript.speakers.join(" & ")
     : transcript.speakers || "the speaker";
-
-  const transcriptText = transcript.summary || transcript.corrected_text || transcript.raw_text || "";
 
   // Cleanup AudioContext and animation frames on unmount
   useEffect(() => {
@@ -75,20 +73,15 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
     setError(null);
 
     try {
-      // Use first 5000 chars (backend limit) of summary or transcript
-      const textToSpeak = transcriptText.slice(0, 5000);
-      if (textToSpeak.trim().length === 0) {
-        setError("No transcript text available for audio generation.");
-        return;
-      }
-
-      const speech = await generateSpeech(textToSpeak, transcript.id);
+      // The backend reads the summary (or the transcript when there is none),
+      // generating the audio only the first time anyone asks for it.
+      const wav = await loadSpeechAudio(transcript.id, "summary");
 
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
       }
 
-      const buffer = await decodeAudioData(speech, audioContextRef.current);
+      const buffer = await audioContextRef.current.decodeAudioData(wav);
       audioBufferRef.current = buffer;
       setTotalDuration(formatTime(buffer.duration));
       setIsGenerated(true);

@@ -47,15 +47,24 @@ export interface ChatReply {
 }
 
 /**
- * TTS response — base64 raw PCM plus the parameters needed to play it.
- * The sample rate depends on the backend's AI provider.
+ * What a transcript's speech reads aloud. `summary` falls back to the
+ * transcript text when there is no summary.
  */
-export interface TTSResponse {
-  audio: string;
-  format: string;
+export type SpeechSource = 'transcript' | 'summary';
+
+/**
+ * Stored speech for a transcript, as described by the backend
+ */
+export interface SpeechAudio {
   sampleRate: number;
-  channels: number;
+  durationSeconds: number;
+  byteSize: number;
+  format: 'wav';
 }
+
+// Synthesis plus upload can take a while for long texts.
+const SPEECH_GENERATE_TIMEOUT_MS = 120000;
+const SPEECH_DOWNLOAD_TIMEOUT_MS = 60000;
 
 /**
  * Generate a summary for a transcript
@@ -179,89 +188,76 @@ export const clearChat = async (transcriptId: string): Promise<void> => {
   await api.delete(`${config.endpoints.chatHistory}/${encodeURIComponent(transcriptId)}`);
 };
 
+const speechPath = (transcriptId: string) =>
+  `${config.endpoints.tts}/${encodeURIComponent(transcriptId)}`;
+
 /**
- * Generate speech from text using TTS
- * @param text - Text to convert to speech
- * @param transcriptId - Optional transcript ID for caching
- * @returns Promise with base64 PCM audio and its format
+ * User-facing message for a failed speech request
  */
-export const generateSpeech = async (text: string, transcriptId?: string): Promise<TTSResponse> => {
-  try {
-    if (!text || text.trim().length === 0) {
-      throw new Error('Text is required for speech generation');
-    }
+const speechErrorMessage = (error: unknown): string => {
+  if (!(error instanceof APIError)) {
+    return 'An unexpected error occurred during audio generation.';
+  }
 
-    const response = await api.post<TTSResponse>(config.endpoints.tts, {
-      text,
-      transcriptId,
-    });
+  if (error.statusCode === 401) {
+    return 'Please sign in to listen to audio.';
+  }
 
-    return response;
-  } catch (error) {
-    if (error instanceof APIError) {
-      console.error('TTS error:', error.message);
-      
-      if (error.code === 'RATE_LIMIT_EXCEEDED') {
-        throw new Error('Too many audio requests. Please wait a moment and try again.');
-      }
-      
-      throw new Error(`Audio generation failed: ${error.message}`);
-    }
-    
-    console.error('Unexpected TTS error:', error);
-    throw new Error('An unexpected error occurred during audio generation.');
+  switch (error.code) {
+    case 'RATE_LIMIT_EXCEEDED':
+      return 'Too many audio requests. Please wait a moment and try again.';
+    case 'NO_SPEECH_TEXT':
+      return 'This transcript has no text to read aloud.';
+    case 'TTS_STORAGE_NOT_CONFIGURED':
+    case 'AI_NOT_CONFIGURED':
+      return 'Audio generation is not available right now.';
+    case 'CONNECTION_ERROR':
+    case 'TIMEOUT':
+      return error.message;
+    default:
+      return `Audio generation failed: ${error.message}`;
   }
 };
 
 /**
- * Helper to decode base64 to ArrayBuffer
- * This stays on the frontend as it's for audio playback
+ * Load a transcript's speech as a WAV file.
+ * Audio is generated once on the backend and stored; later calls — from any
+ * user — download the stored copy. Generation only happens when nothing is
+ * stored yet, so replays make no AI call and work even with AI disabled.
+ * Errors are thrown with a message that is safe to show the user.
+ * @param transcriptId - Transcript ID
+ * @param source - What to read aloud
+ * @returns Promise with the WAV bytes (decode with AudioContext.decodeAudioData)
  */
-export function decodeBase64(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
+export const loadSpeechAudio = async (
+  transcriptId: string,
+  source: SpeechSource
+): Promise<ArrayBuffer> => {
+  const path = speechPath(transcriptId);
+  const query = `?source=${source}`;
 
-/**
- * Helper to decode audio data using manual PCM decoding
- * This stays on the frontend as it's for audio playback
- */
-export async function decodeAudioData(
-  speech: TTSResponse,
-  audioContext: AudioContext
-): Promise<AudioBuffer> {
-  const bytes = decodeBase64(speech.audio);
-  
-  // The audio bytes returned by the API is raw PCM data.
-  // We must implement the decoding logic manually.
-  
-  const { sampleRate, channels: numChannels } = speech;
-  
-  const dataInt16 = new Int16Array(bytes.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = audioContext.createBuffer(numChannels, frameCount, sampleRate);
+  try {
+    const { audio } = await api.get<{ audio: SpeechAudio | null }>(`${path}${query}`);
 
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      // Convert int16 to float32 (-1.0 to 1.0)
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    if (!audio) {
+      await api.post<{ audio: SpeechAudio; cached: boolean }>(
+        path,
+        { source },
+        { timeout: SPEECH_GENERATE_TIMEOUT_MS }
+      );
     }
+
+    return await api.getBinary(`${path}/audio${query}`, { timeout: SPEECH_DOWNLOAD_TIMEOUT_MS });
+  } catch (error) {
+    console.error('TTS error:', error);
+    throw new Error(speechErrorMessage(error));
   }
-  return buffer;
-}
+};
 
 export default {
   generateSummary,
   chatWithTranscript,
   getChatHistory,
   clearChat,
-  generateSpeech,
-  decodeBase64,
-  decodeAudioData,
+  loadSpeechAudio,
 };

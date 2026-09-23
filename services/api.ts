@@ -176,6 +176,70 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 }
 
 /**
+ * GET a binary resource (e.g. audio) with the same auth and error handling
+ * as JSON requests. Error responses are still JSON.
+ * @param endpoint - API endpoint path
+ * @param timeout - Request timeout in milliseconds
+ * @returns Promise with the response bytes
+ */
+async function requestBinary(endpoint: string, timeout: number = config.timeout): Promise<ArrayBuffer> {
+  const { controller, timeoutId } = createTimeoutController(timeout);
+
+  try {
+    const response = await fetch(`${config.apiUrl}${endpoint}`, {
+      method: 'GET',
+      headers: getAuthHeader(),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('btc-auth-token');
+      }
+
+      let data: APIResponse<never> | null = null;
+      if (response.headers.get('content-type')?.includes('application/json')) {
+        data = await response.json();
+      }
+      throw new APIError(
+        data?.error?.message || `Request failed with status ${response.status}`,
+        response.status,
+        data?.error?.code || 'API_ERROR'
+      );
+    }
+
+    // Keep the timeout running until the whole body has arrived.
+    const bytes = await response.arrayBuffer();
+    clearTimeout(timeoutId);
+    return bytes;
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof APIError) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new APIError('Request timeout - server took too long to respond', 408, 'TIMEOUT');
+      }
+
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new APIError(
+          'Unable to connect to server. Please check if the backend is running.',
+          503,
+          'CONNECTION_ERROR'
+        );
+      }
+
+      throw new APIError(error.message, 500, 'UNKNOWN_ERROR');
+    }
+
+    throw new APIError('An unexpected error occurred', 500, 'UNKNOWN_ERROR');
+  }
+}
+
+/**
  * API methods
  */
 export const api = {
@@ -184,6 +248,12 @@ export const api = {
    */
   get: <T>(endpoint: string, options?: Omit<RequestOptions, 'method' | 'body'>) =>
     request<T>(endpoint, { ...options, method: 'GET' }),
+
+  /**
+   * GET request for binary data (audio files)
+   */
+  getBinary: (endpoint: string, options?: { timeout?: number }) =>
+    requestBinary(endpoint, options?.timeout),
 
   /**
    * POST request

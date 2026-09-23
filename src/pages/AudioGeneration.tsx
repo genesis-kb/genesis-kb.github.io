@@ -2,8 +2,7 @@
 import { Play, Pause, Download, Volume2, SkipForward, SkipBack, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { generateSpeech, decodeAudioData } from "../../services/aiService";
-import { getTranscriptById } from "../../services/dataService";
+import { loadSpeechAudio } from "../../services/aiService";
 import type { Talk } from "../../types";
 import { useConferences } from "@/hooks/useTranscripts";
 
@@ -95,27 +94,15 @@ const AudioGeneration = () => {
     setError(null);
 
     try {
-      let sourceText = selectedTalk.talk.summary || selectedTalk.talk.transcript || "";
-
-      // On-demand fallback: if lean list data has no usable text, fetch detail payload for this talk.
-      if (!sourceText.trim()) {
-        const detail = await getTranscriptById(selectedTalk.talk.id);
-        sourceText = detail?.summary || detail?.corrected_text || detail?.raw_text || "";
-      }
-
-      const textToSpeak = sourceText.slice(0, 5000);
-      if (textToSpeak.trim().length === 0) {
-        setError("No text available for audio generation.");
-        return;
-      }
-
-      const speech = await generateSpeech(textToSpeak, selectedTalk.talk.id);
+      // The backend reads the summary (or the transcript when there is none),
+      // generating the audio only the first time anyone asks for it.
+      const wav = await loadSpeechAudio(selectedTalk.talk.id, "summary");
 
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
       }
 
-      const buffer = await decodeAudioData(speech, audioContextRef.current);
+      const buffer = await audioContextRef.current.decodeAudioData(wav);
       audioBufferRef.current = buffer;
       setTotalDuration(formatTime(buffer.duration));
       setIsGenerated(true);
