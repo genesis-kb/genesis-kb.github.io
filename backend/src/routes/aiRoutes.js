@@ -1,14 +1,14 @@
 /**
  * AI Routes
  *
- * POST /summary   — Pre-generated summary from the DB. No Gemini call, no auth:
+ * POST /summary   — Pre-generated summary from the DB. No AI call, no auth:
  *                   transcripts are public, so their summaries are too.
- * POST /chat      — Gemini chat over transcript context. Auth required.
- * POST /tts       — Gemini text-to-speech. Auth required.
- * POST /entities  — Gemini entity extraction. Auth required.
+ * POST /chat      — AI chat over transcript context. Auth required.
+ * POST /tts       — AI text-to-speech. Auth required.
+ * POST /entities  — AI entity extraction. Auth required.
  *
- * The three Gemini-backed routes cost money per call, so each one runs
- * behind requireAuth, requireAIConfigured (503 when no API key is set),
+ * The three AI-backed routes cost money per call, so each one runs
+ * behind requireAuth, requireAIConfigured (503 when no AI provider is configured),
  * and a rate limiter.
  */
 
@@ -26,7 +26,7 @@ import logger from '../config/logger.js';
 const router = Router();
 
 /**
- * Middleware chain shared by the Gemini-backed routes.
+ * Middleware chain shared by the AI-backed routes.
  *
  * requireAuth runs first so anonymous requests are rejected without
  * consuming the caller's AI rate-limit budget; the general /api limiter
@@ -46,7 +46,7 @@ const aiGuards = (limiter, rules) => [
 
 /**
  * @route   POST /api/v1/ai/summary
- * @desc    Return pre-generated summary from DB (no Gemini call)
+ * @desc    Return pre-generated summary from DB (no AI call)
  * @access  Public
  */
 router.post(
@@ -78,7 +78,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/ai/chat
- * @desc    Chat with Gemini using transcript context
+ * @desc    Chat with the AI provider using transcript context
  * @access  Private
  */
 router.post(

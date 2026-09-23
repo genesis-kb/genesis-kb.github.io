@@ -1,9 +1,9 @@
 /**
  * AI Controller
- * Handles all AI-related API endpoints (Gemini)
+ * Handles all AI-related API endpoints
  */
 
-import * as geminiService from '../services/geminiService.js';
+import * as aiService from '../services/aiService.js';
 import * as supabaseService from '../services/supabaseService.js';
 import { sendSuccess } from '../utils/responseHelper.js';
 import { APIError } from '../middleware/errorHandler.js';
@@ -33,7 +33,7 @@ export const generateSummary = async (req, res) => {
   }
 
   // Generate new summary
-  const summary = await geminiService.generateSummary(transcript);
+  const summary = await aiService.generateSummary(transcript);
 
   // Cache the result if transcriptId provided
   if (transcriptId) {
@@ -52,8 +52,9 @@ export const chat = async (req, res) => {
   const { message, transcript, history = [] } = req.body;
 
   logger.info('Controller: Processing chat message');
+  logger.info(`${transcript}`);
 
-  const response = await geminiService.chatWithTranscript(
+  const response = await aiService.chatWithTranscript(
     history,
     message,
     transcript
@@ -76,14 +77,11 @@ export const generateSpeech = async (req, res) => {
 
   logger.info('Controller: Generating speech');
 
-  const audioData = await geminiService.generateSpeech(text);
+  // { audio, format, sampleRate, channels } — the sample rate depends on
+  // the provider, so the client must read it rather than assume one.
+  const speech = await aiService.generateSpeech(text);
 
-  sendSuccess(res, {
-    audio: audioData,
-    format: 'pcm',
-    sampleRate: 24000,
-    channels: 1,
-  });
+  sendSuccess(res, speech);
 };
 
 /**
@@ -110,7 +108,7 @@ export const extractEntities = async (req, res) => {
   }
 
   // Extract new entities
-  const entities = await geminiService.extractEntities(transcript);
+  const entities = await aiService.extractEntities(transcript);
 
   // Cache the result if transcriptId provided
   if (transcriptId) {

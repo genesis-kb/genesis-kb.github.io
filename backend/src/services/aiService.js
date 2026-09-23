@@ -1,34 +1,33 @@
 /**
- * Gemini AI Service
- * Handles all AI operations using Google's Gemini API
+ * AI Service
+ * Provider-neutral AI operations (summary, chat, TTS, entities). Prompts and
+ * response handling live here; the configured provider adapter
+ * (config.ai.provider) only turns a prompt into text or text into audio.
  */
 
-import { GoogleGenAI } from '@google/genai';
 import config from '../config/index.js';
 import logger from '../config/logger.js';
+import * as bedrockProvider from './ai/bedrockProvider.js';
+import * as geminiProvider from './ai/geminiProvider.js';
 
-// Lazy-initialized Gemini client
-let aiClient = null;
+const providers = {
+  bedrock: bedrockProvider,
+  gemini: geminiProvider,
+};
 
 /**
- * Get or initialize the Gemini AI client
- * @returns {GoogleGenAI} Gemini AI client instance
+ * Get the adapter for the configured AI provider
+ * @returns {{generateText: Function, synthesizeSpeech: Function}} Provider adapter
  */
-const getAIClient = () => {
-  if (!aiClient) {
-    // config.gemini.enabled, not apiKey: the .env.example placeholder is a
-    // non-empty string, so a truthiness check would build a client around it
-    // and only fail once Google rejected the request.
-    if (!config.gemini.enabled) {
-      logger.error('Gemini API key is missing or unfilled. Please check your .env file.');
-      throw new Error('Gemini API key is not configured');
-    }
-
-    aiClient = new GoogleGenAI({ apiKey: config.gemini.apiKey });
-    logger.info('Gemini AI client initialized successfully');
+const getProvider = () => {
+  // config.ai.enabled, not config.ai.provider: a provider can be selected but
+  // left without the settings it needs (e.g. a placeholder Gemini key).
+  if (!config.ai.enabled) {
+    logger.error('No AI provider is configured. Please check your .env file.');
+    throw new Error('AI provider is not configured');
   }
 
-  return aiClient;
+  return providers[config.ai.provider];
 };
 
 /**
@@ -44,7 +43,7 @@ export const generateSummary = async (transcript) => {
   logger.info('Generating summary for transcript...');
 
   try {
-    const ai = getAIClient();
+    const provider = getProvider();
 
     const prompt = `You are an expert Bitcoin analyst. Please summarize the following transcript from a Bitcoin conference.
 
@@ -62,15 +61,7 @@ Format the output with Markdown:
 Transcript:
 ${transcript}`;
 
-    const response = await ai.models.generateContent({
-      model: config.gemini.models.chat,
-      contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 0 }, // Faster response
-      },
-    });
-
-    const summary = response.text || 'Failed to generate summary.';
+    const summary = (await provider.generateText(prompt)) || 'Failed to generate summary.';
     logger.info('Summary generated successfully');
 
     return summary;
@@ -99,12 +90,12 @@ export const chatWithTranscript = async (history, currentMessage, contextTranscr
   logger.info('Processing chat message...');
 
   try {
-    const ai = getAIClient();
+    const provider = getProvider();
 
     // Truncate transcript to avoid token limits
     const truncatedTranscript = contextTranscript.substring(
       0,
-      config.gemini.context.maxTranscriptLength
+      config.ai.context.maxTranscriptLength
     );
 
     // Build conversation context
@@ -128,12 +119,9 @@ Instructions:
 
 ${conversationContext ? `Previous conversation:\n${conversationContext}\n\n` : ''}User Question: ${currentMessage}`;
 
-    const response = await ai.models.generateContent({
-      model: config.gemini.models.chat,
-      contents: prompt,
-    });
-
-    const reply = response.text || "I didn't understand that. Please try rephrasing your question.";
+    const reply =
+      (await provider.generateText(prompt)) ||
+      "I didn't understand that. Please try rephrasing your question.";
     logger.info('Chat response generated successfully');
 
     return reply;
@@ -146,7 +134,9 @@ ${conversationContext ? `Previous conversation:\n${conversationContext}\n\n` : '
 /**
  * Generate speech from text using TTS
  * @param {string} text - Text to convert to speech
- * @returns {Promise<string>} Base64 encoded audio data
+ * @returns {Promise<{audio: string, format: string, sampleRate: number, channels: number}>}
+ *   Base64 raw PCM plus the parameters needed to play it — the sample rate
+ *   differs between providers.
  */
 export const generateSpeech = async (text) => {
   if (!text || text.trim().length === 0) {
@@ -156,36 +146,18 @@ export const generateSpeech = async (text) => {
   logger.info('Generating speech from text...');
 
   try {
-    const ai = getAIClient();
+    const provider = getProvider();
 
     // Truncate text to avoid token limits
     const safeText =
-      text.length > config.gemini.tts.maxTextLength
-        ? text.substring(0, config.gemini.tts.maxTextLength) + '...'
+      text.length > config.ai.tts.maxTextLength
+        ? text.substring(0, config.ai.tts.maxTextLength) + '...'
         : text;
 
-    const response = await ai.models.generateContent({
-      model: config.gemini.models.tts,
-      contents: [{ parts: [{ text: safeText }] }],
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: config.gemini.tts.voice },
-          },
-        },
-      },
-    });
-
-    const base64Audio =
-      response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-    if (!base64Audio) {
-      throw new Error('No audio data received from Gemini TTS');
-    }
+    const speech = await provider.synthesizeSpeech(safeText);
 
     logger.info('Speech generated successfully');
-    return base64Audio;
+    return speech;
   } catch (error) {
     logger.error('TTS error:', { error: error.message });
     throw new Error(`TTS error: ${error.message}`);
@@ -205,7 +177,7 @@ export const extractEntities = async (transcript) => {
   logger.info('Extracting entities from transcript...');
 
   try {
-    const ai = getAIClient();
+    const provider = getProvider();
 
     const prompt = `Analyze this Bitcoin conference transcript and extract the following as JSON:
 
@@ -223,16 +195,11 @@ ${transcript.substring(0, 10000)}
 
 Return ONLY valid JSON, no markdown or explanations.`;
 
-    const response = await ai.models.generateContent({
-      model: config.gemini.models.chat,
-      contents: prompt,
-    });
-
     // Parse JSON response
-    const responseText = response.text || '{}';
+    const responseText = (await provider.generateText(prompt)) || '{}';
     // Remove markdown code blocks if present
     const cleanJson = responseText.replace(/```json\n?|\n?```/g, '').trim();
-    
+
     let entities;
     try {
       entities = JSON.parse(cleanJson);
@@ -261,30 +228,26 @@ Return ONLY valid JSON, no markdown or explanations.`;
 };
 
 /**
- * Health check for Gemini API
+ * Health check for the configured AI provider
  * @returns {Promise<boolean|null>} True if accessible, false if the call
- *   failed, null if AI is disabled (no usable key configured)
+ *   failed, null if AI is disabled (no provider configured)
  */
 export const healthCheck = async () => {
-  // A deployment with no key has AI switched off by design. Probing Google
-  // anyway would bill a request per health check and report 'unhealthy' for
-  // a server that is working exactly as configured.
-  if (!config.gemini.enabled) {
+  // A deployment with no provider has AI switched off by design. Probing a
+  // provider anyway would bill a request per health check and report
+  // 'unhealthy' for a server that is working exactly as configured.
+  if (!config.ai.enabled) {
     return null;
   }
 
   try {
-    const ai = getAIClient();
-    await ai.models.generateContent({
-      model: config.gemini.models.chat,
-      contents: 'Say "OK" if you can read this.',
-      config: {
-        maxOutputTokens: 5,
-      },
-    });
+    // Room for models that spend a few tokens reasoning before answering.
+    await getProvider().generateText('Say "OK" if you can read this.', { maxTokens: 64 });
     return true;
   } catch (error) {
-    logger.error('Gemini health check failed:', { error: error.message });
+    logger.error(`AI provider (${config.ai.provider}) health check failed:`, {
+      error: error.message,
+    });
     return false;
   }
 };
