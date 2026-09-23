@@ -15,7 +15,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useNotes } from "@/hooks/useNotes";
 import { toast } from "sonner";
 import { formatDate, cn } from "@/lib/utils";
-import { generateSummary } from "../../services/geminiService";
+import { generateSummary } from "../../services/aiService";
 import type { RawTranscript } from "../../types";
 import { useTranscript } from "@/hooks/useTranscripts";
 import { useAuth } from "@/hooks/useAuth";
