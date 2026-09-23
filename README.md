@@ -168,7 +168,9 @@ All API requests are proxied through the backend at `http://localhost:5000/api/v
 | GET | `/transcripts/:id` | Get a single transcript by UUID |
 | POST | `/ai/summary` | Generate AI summary |
 | POST | `/ai/chat` | Chat with transcript context |
-| POST | `/ai/tts` | Text-to-speech audio generation |
+| GET | `/ai/tts/:transcriptId?source=` | Stored speech metadata, or `null` (auth) |
+| GET | `/ai/tts/:transcriptId/audio?source=` | Stream stored speech as WAV (auth) |
+| POST | `/ai/tts/:transcriptId` | Generate and store speech once per transcript (auth) |
 | POST | `/ai/entities` | Extract entities from transcript |
 | GET | `/health` | Basic health check |
 | GET | `/health/detailed` | Detailed service status |
