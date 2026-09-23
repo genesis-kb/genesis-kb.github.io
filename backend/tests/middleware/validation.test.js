@@ -154,7 +154,7 @@ describe('validationRules.chat', () => {
 
   it('fails when message is missing', async () => {
     const { next } = await runValidation(rules, {
-      body: { transcript: 'x'.repeat(200) },
+      body: { transcript: 'x'.repeat(200), transcriptId: '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f' },
     });
     const err = next.mock.calls[0][0];
     expect(err).toBeDefined();
@@ -163,16 +163,46 @@ describe('validationRules.chat', () => {
 
   it('fails when transcript is shorter than 100 chars', async () => {
     const { next } = await runValidation(rules, {
-      body: { message: 'Hello', transcript: 'short' },
+      body: { message: 'Hello', transcript: 'short', transcriptId: '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f' },
     });
     const err = next.mock.calls[0][0];
     expect(err).toBeDefined();
   });
 
-  it('passes with valid message and long transcript', async () => {
+  it('fails when transcriptId is missing', async () => {
     const { next } = await runValidation(rules, {
-      body: { message: 'Explain this', transcript: 'x'.repeat(200) },
+      body: { message: 'Hello', transcript: 'x'.repeat(200) },
+    });
+    expect(next.mock.calls[0][0]).toBeDefined();
+  });
+
+  it('fails when transcriptId is not a UUID', async () => {
+    const { next } = await runValidation(rules, {
+      body: { message: 'Hello', transcript: 'x'.repeat(200), transcriptId: 'not-a-uuid' },
+    });
+    expect(next.mock.calls[0][0]).toBeDefined();
+  });
+
+  it('passes with valid message, long transcript and transcriptId', async () => {
+    const { next } = await runValidation(rules, {
+      body: { message: 'Explain this', transcript: 'x'.repeat(200), transcriptId: '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f' },
     });
     expect(next.mock.calls[0][0]).toBeUndefined();
+  });
+});
+
+// ─── validationRules.chatHistory ────────────────────────────────────────────
+
+describe('validationRules.chatHistory', () => {
+  const rules = validationRules.chatHistory;
+
+  it('passes with a UUID transcriptId param', async () => {
+    const { next } = await runValidation(rules, { params: { transcriptId: '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f' } });
+    expect(next.mock.calls[0][0]).toBeUndefined();
+  });
+
+  it('fails with a non-UUID transcriptId param', async () => {
+    const { next } = await runValidation(rules, { params: { transcriptId: 'abc' } });
+    expect(next.mock.calls[0][0]).toBeDefined();
   });
 });
