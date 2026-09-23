@@ -41,9 +41,9 @@ const validateEnvVars = (requiredVars) => {
 };
 
 // Validate critical environment variables.
-// GEMINI_API_KEY is deliberately not required: a missing or placeholder key
-// disables the AI endpoints via config.gemini.enabled rather than stopping
-// the server, so a deployment can run the rest of the API without one.
+// AI settings are deliberately not required: a missing or incomplete AI
+// provider disables the AI endpoints via config.ai.enabled rather than
+// stopping the server, so a deployment can run the rest of the API without one.
 const requiredVars = ['DATABASE_URL'];
 
 // Only validate in production, allow fallbacks in development
@@ -75,6 +75,54 @@ const isUsableApiKey = (key) => {
 };
 
 const geminiApiKey = (process.env.GEMINI_API_KEY || '').trim();
+const awsRegion = (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || '').trim();
+// Bedrock model availability varies by region, so Bedrock can run in a
+// different region from the rest of the AWS services (e.g. us-east-1).
+const bedrockRegion = (process.env.BEDROCK_REGION || awsRegion).trim();
+const pollyRegion = (process.env.POLLY_REGION || awsRegion || bedrockRegion).trim();
+const bedrockModelId = (process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0').trim();
+
+const AI_PROVIDERS = ['bedrock', 'gemini', 'none'];
+
+/**
+ * Resolve which AI provider serves the AI endpoints.
+ * AI_PROVIDER picks one explicitly. When it is unset, a usable
+ * GEMINI_API_KEY keeps selecting Gemini so existing deployments behave as
+ * before; otherwise AI is off.
+ * @returns {string} 'bedrock' | 'gemini' | 'none'
+ */
+const resolveAIProvider = () => {
+  const requested = (process.env.AI_PROVIDER || '').trim().toLowerCase();
+  if (requested) {
+    if (!AI_PROVIDERS.includes(requested)) {
+      throw new Error(
+        `AI_PROVIDER must be one of ${AI_PROVIDERS.join(', ')} (got '${process.env.AI_PROVIDER}').`
+      );
+    }
+    return requested;
+  }
+  return isUsableApiKey(geminiApiKey) ? 'gemini' : 'none';
+};
+
+const aiProvider = resolveAIProvider();
+
+/**
+ * Decide whether the selected provider has what it needs to make a call.
+ * Bedrock credentials (explicit keys, a profile or an IAM role — see
+ * config/aws.js) can't be verified without a call, so a region and model ID
+ * are the bar; a bad credential surfaces in /health/detailed instead.
+ * @returns {boolean} True if AI requests should be attempted
+ */
+const isAIProviderConfigured = () => {
+  switch (aiProvider) {
+    case 'bedrock':
+      return Boolean(bedrockRegion && bedrockModelId);
+    case 'gemini':
+      return isUsableApiKey(geminiApiKey);
+    default:
+      return false;
+  }
+};
 
 /**
  * Configuration object
@@ -101,22 +149,57 @@ const config = {
     bcryptRounds: 12,
   },
 
-  // Gemini AI configuration
-  gemini: {
-    apiKey: geminiApiKey,
-    // Gates the AI endpoints. False when no usable key is configured, which
-    // makes them answer 503 AI_NOT_CONFIGURED rather than attempting a call.
-    enabled: isUsableApiKey(geminiApiKey),
-    models: {
-      chat: 'gemini-3-flash-preview',
-      tts: 'gemini-2.5-flash-preview-tts',
+  // AWS (shared by every AWS SDK client — see config/aws.js)
+  aws: {
+    region: awsRegion,
+    accessKeyId: (process.env.AWS_ACCESS_KEY_ID || '').trim(),
+    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || '').trim(),
+    sessionToken: (process.env.AWS_SESSION_TOKEN || '').trim(),
+    http: {
+      connectionTimeoutMs: 10 * 1000,
+      requestTimeoutMs: 60 * 1000,
+      maxAttempts: 3,
     },
+  },
+
+  // AI configuration
+  ai: {
+    provider: aiProvider,
+    // Gates the AI endpoints. False when the selected provider is missing
+    // settings it needs, which makes them answer 503 AI_NOT_CONFIGURED
+    // rather than attempting a call.
+    enabled: isAIProviderConfigured(),
     tts: {
-      voice: 'Kore',
       maxTextLength: 2000,
     },
     context: {
       maxTranscriptLength: 25000,
+    },
+
+    // Amazon Bedrock (text) + Amazon Polly (speech)
+    bedrock: {
+      region: bedrockRegion,
+      modelId: bedrockModelId,
+      maxTokens: parseInt(process.env.BEDROCK_MAX_TOKENS, 10) || 4096,
+      tts: {
+        region: pollyRegion,
+        voice: process.env.POLLY_VOICE_ID || 'Joanna',
+        engine: process.env.POLLY_ENGINE || 'neural',
+        // Polly PCM output supports only 8000 and 16000 Hz.
+        sampleRate: 16000,
+      },
+    },
+
+    // Google Gemini
+    gemini: {
+      apiKey: geminiApiKey,
+      models: {
+        chat: 'gemini-3-flash-preview',
+        tts: 'gemini-2.5-flash-preview-tts',
+      },
+      tts: {
+        voice: 'Kore',
+      },
     },
   },
 
