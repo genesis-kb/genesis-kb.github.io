@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useCallback, useEffect } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { generateSpeech, decodeAudioData } from "../../services/geminiService";
+import { generateSpeech, decodeAudioData } from "../../services/aiService";
 import type { RawTranscript } from "../../types";
 
 export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) => {
@@ -82,13 +82,13 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
         return;
       }
 
-      const base64Audio = await generateSpeech(textToSpeak, transcript.id);
+      const speech = await generateSpeech(textToSpeak, transcript.id);
 
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
       }
 
-      const buffer = await decodeAudioData(base64Audio, audioContextRef.current);
+      const buffer = await decodeAudioData(speech, audioContextRef.current);
       audioBufferRef.current = buffer;
       setTotalDuration(formatTime(buffer.duration));
       setIsGenerated(true);

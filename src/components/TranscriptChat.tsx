@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { chatWithTranscript } from "../../services/geminiService";
+import { chatWithTranscript } from "../../services/aiService";
 import type { RawTranscript } from "../../types";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 

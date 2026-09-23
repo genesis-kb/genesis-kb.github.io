@@ -2,7 +2,7 @@
 import { Play, Pause, Download, Volume2, SkipForward, SkipBack, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { generateSpeech, decodeAudioData } from "../../services/geminiService";
+import { generateSpeech, decodeAudioData } from "../../services/aiService";
 import { getTranscriptById } from "../../services/dataService";
 import type { Talk } from "../../types";
 import { useConferences } from "@/hooks/useTranscripts";
@@ -109,13 +109,13 @@ const AudioGeneration = () => {
         return;
       }
 
-      const base64Audio = await generateSpeech(textToSpeak, selectedTalk.talk.id);
+      const speech = await generateSpeech(textToSpeak, selectedTalk.talk.id);
 
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
       }
 
-      const buffer = await decodeAudioData(base64Audio, audioContextRef.current);
+      const buffer = await decodeAudioData(speech, audioContextRef.current);
       audioBufferRef.current = buffer;
       setTotalDuration(formatTime(buffer.duration));
       setIsGenerated(true);

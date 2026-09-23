@@ -1,7 +1,7 @@
 /**
  * AI Service
  * Handles all AI operations via the backend API
- * No longer calls Gemini directly - all AI requests go through the backend
+ * Never calls an AI provider directly - all AI requests go through the backend
  */
 
 import { api, APIError } from './api';
@@ -25,9 +25,10 @@ interface ChatResponse {
 }
 
 /**
- * TTS response interface
+ * TTS response — base64 raw PCM plus the parameters needed to play it.
+ * The sample rate depends on the backend's AI provider.
  */
-interface TTSResponse {
+export interface TTSResponse {
   audio: string;
   format: string;
   sampleRate: number;
@@ -128,9 +129,9 @@ export const chatWithTranscript = async (
  * Generate speech from text using TTS
  * @param text - Text to convert to speech
  * @param transcriptId - Optional transcript ID for caching
- * @returns Promise with base64 encoded audio data
+ * @returns Promise with base64 PCM audio and its format
  */
-export const generateSpeech = async (text: string, transcriptId?: string): Promise<string> => {
+export const generateSpeech = async (text: string, transcriptId?: string): Promise<TTSResponse> => {
   try {
     if (!text || text.trim().length === 0) {
       throw new Error('Text is required for speech generation');
@@ -141,7 +142,7 @@ export const generateSpeech = async (text: string, transcriptId?: string): Promi
       transcriptId,
     });
 
-    return response.audio;
+    return response;
   } catch (error) {
     if (error instanceof APIError) {
       console.error('TTS error:', error.message);
@@ -177,16 +178,15 @@ export function decodeBase64(base64: string): Uint8Array {
  * This stays on the frontend as it's for audio playback
  */
 export async function decodeAudioData(
-  base64Data: string,
+  speech: TTSResponse,
   audioContext: AudioContext
 ): Promise<AudioBuffer> {
-  const bytes = decodeBase64(base64Data);
+  const bytes = decodeBase64(speech.audio);
   
   // The audio bytes returned by the API is raw PCM data.
   // We must implement the decoding logic manually.
   
-  const sampleRate = 24000; // gemini-2.5-flash-preview-tts defaults to 24kHz
-  const numChannels = 1;
+  const { sampleRate, channels: numChannels } = speech;
   
   const dataInt16 = new Int16Array(bytes.buffer);
   const frameCount = dataInt16.length / numChannels;
