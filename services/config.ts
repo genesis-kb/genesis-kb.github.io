@@ -28,6 +28,7 @@ export const config = {
     chat: '/api/v1/ai/chat',
     // Saved chat for a transcript: GET / DELETE `${chatHistory}/${transcriptId}`
     chatHistory: '/api/v1/ai/chat',
+    // Stored speech: GET/POST `${tts}/${transcriptId}`, GET `${tts}/${transcriptId}/audio`
     tts: '/api/v1/ai/tts',
     entities: '/api/v1/ai/entities',
 
