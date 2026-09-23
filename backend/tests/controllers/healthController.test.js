@@ -2,19 +2,20 @@
  * Unit Tests — healthController.js
  *
  * Tests basic and detailed health checks.
- * Mocks: supabaseService, geminiService, config.
+ * Mocks: supabaseService, aiService, config.
  */
 
 import { jest } from '@jest/globals';
 
 const mockSupabase = { healthCheck: jest.fn() };
-const mockGemini = { healthCheck: jest.fn() };
+const mockAI = { healthCheck: jest.fn() };
 const mockConfig = {
   server: { env: 'test', isProduction: false },
+  ai: { provider: 'bedrock' },
 };
 
 jest.unstable_mockModule('../../src/services/supabaseService.js', () => mockSupabase);
-jest.unstable_mockModule('../../src/services/geminiService.js', () => mockGemini);
+jest.unstable_mockModule('../../src/services/aiService.js', () => mockAI);
 jest.unstable_mockModule('../../src/config/index.js', () => ({ default: mockConfig }));
 jest.unstable_mockModule('../../src/config/logger.js', () => ({
   default: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -55,7 +56,7 @@ describe('healthCheck', () => {
 describe('detailedHealthCheck', () => {
   it('returns 200 and healthy when all services are up', async () => {
     mockSupabase.healthCheck.mockResolvedValueOnce(true);
-    mockGemini.healthCheck.mockResolvedValueOnce(true);
+    mockAI.healthCheck.mockResolvedValueOnce(true);
 
     const res = createMockRes();
     await detailedHealthCheck({}, res);
@@ -64,12 +65,12 @@ describe('detailedHealthCheck', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.status).toBe('healthy');
     expect(res.body.data.services.database.status).toBe('healthy');
-    expect(res.body.data.services.gemini.status).toBe('healthy');
+    expect(res.body.data.services.ai.status).toBe('healthy');
   });
 
   it('returns degraded status when database is down (in dev)', async () => {
     mockSupabase.healthCheck.mockRejectedValueOnce(new Error('Connection failed'));
-    mockGemini.healthCheck.mockResolvedValueOnce(true);
+    mockAI.healthCheck.mockResolvedValueOnce(true);
 
     const res = createMockRes();
     await detailedHealthCheck({}, res);
@@ -83,7 +84,7 @@ describe('detailedHealthCheck', () => {
   it('returns 503 when services are down in production', async () => {
     mockConfig.server.isProduction = true;
     mockSupabase.healthCheck.mockRejectedValueOnce(new Error('Connection failed'));
-    mockGemini.healthCheck.mockResolvedValueOnce(true);
+    mockAI.healthCheck.mockResolvedValueOnce(true);
 
     const res = createMockRes();
     await detailedHealthCheck({}, res);
@@ -93,15 +94,15 @@ describe('detailedHealthCheck', () => {
     expect(res.body.data.status).toBe('degraded');
   });
 
-  it('handles gemini service being down', async () => {
+  it('handles the AI provider being down', async () => {
     mockSupabase.healthCheck.mockResolvedValueOnce(true);
-    mockGemini.healthCheck.mockRejectedValueOnce(new Error('API inaccessible'));
+    mockAI.healthCheck.mockRejectedValueOnce(new Error('API inaccessible'));
 
     const res = createMockRes();
     await detailedHealthCheck({}, res);
 
     expect(res.body.success).toBe(false);
     expect(res.body.data.status).toBe('degraded');
-    expect(res.body.data.services.gemini.status).toBe('unhealthy');
+    expect(res.body.data.services.ai.status).toBe('unhealthy');
   });
 });
