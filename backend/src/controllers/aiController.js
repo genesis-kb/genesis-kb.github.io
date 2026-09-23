@@ -3,9 +3,11 @@
  * Handles all AI-related API endpoints
  */
 
+import { pipeline } from 'stream/promises';
 import * as aiService from '../services/aiService.js';
 import * as chatService from '../services/chatService.js';
 import * as supabaseService from '../services/supabaseService.js';
+import * as ttsAudioService from '../services/ttsAudioService.js';
 import { sendSuccess } from '../utils/responseHelper.js';
 import { APIError } from '../middleware/errorHandler.js';
 import logger from '../config/logger.js';
@@ -126,20 +128,59 @@ export const clearChatHistory = async (req, res) => {
 };
 
 /**
- * Generate speech from text
- * POST /api/v1/ai/tts
- * Body: { text: string }
+ * Get metadata for a transcript's stored speech, if any
+ * GET /api/v1/ai/tts/:transcriptId?source=transcript|summary
+ * Returns { audio: metadata|null } — null means it has not been generated.
  */
-export const generateSpeech = async (req, res) => {
-  const { text } = req.body;
+export const getSpeechAudio = async (req, res) => {
+  const row = await ttsAudioService.findAudio(req.params.transcriptId, req.query.source);
+
+  sendSuccess(res, { audio: row ? ttsAudioService.toAudioMetadata(row) : null });
+};
+
+/**
+ * Generate and store a transcript's speech, or return the stored copy
+ * POST /api/v1/ai/tts/:transcriptId
+ * Body: { source: 'transcript'|'summary' }
+ */
+export const createSpeechAudio = async (req, res) => {
+  const { transcriptId } = req.params;
+  const { source } = req.body;
 
   logger.info('Controller: Generating speech');
 
-  // { audio, format, sampleRate, channels } — the sample rate depends on
-  // the provider, so the client must read it rather than assume one.
-  const speech = await aiService.generateSpeech(text);
+  const { row, cached } = await ttsAudioService.getOrCreateAudio(transcriptId, source);
 
-  sendSuccess(res, speech);
+  sendSuccess(res, { audio: ttsAudioService.toAudioMetadata(row), cached });
+};
+
+/**
+ * Stream a transcript's stored speech as WAV
+ * GET /api/v1/ai/tts/:transcriptId/audio?source=transcript|summary
+ */
+export const streamSpeechAudio = async (req, res) => {
+  const { transcriptId } = req.params;
+  const { body, contentLength, contentType } = await ttsAudioService.openAudio(
+    transcriptId,
+    req.query.source
+  );
+
+  res.status(200);
+  res.set('Content-Type', contentType);
+  // The same URL serves new audio once the transcript text or voice changes.
+  res.set('Cache-Control', 'private, no-cache');
+  if (contentLength !== undefined) {
+    res.set('Content-Length', String(contentLength));
+  }
+
+  try {
+    await pipeline(body, res);
+  } catch (error) {
+    // Headers are already sent, so the error handler cannot answer; the
+    // client sees a truncated body.
+    logger.error('TTS audio stream failed', { transcriptId, error: error.message });
+    res.destroy(error);
+  }
 };
 
 /**
@@ -185,6 +226,8 @@ export default {
   chat,
   getChatHistory,
   clearChatHistory,
-  generateSpeech,
+  getSpeechAudio,
+  createSpeechAudio,
+  streamSpeechAudio,
   extractEntities,
 };

@@ -46,7 +46,9 @@ router.get('/', (req, res) => {
         ai: {
           'POST /api/v1/ai/summary': 'Generate transcript summary',
           'POST /api/v1/ai/chat': 'Chat with transcript context',
-          'POST /api/v1/ai/tts': 'Generate speech from text',
+          'GET /api/v1/ai/tts/:transcriptId?source=': 'Get stored speech metadata (requires auth)',
+          'GET /api/v1/ai/tts/:transcriptId/audio?source=': 'Stream stored speech as WAV (requires auth)',
+          'POST /api/v1/ai/tts/:transcriptId': 'Generate and store speech for a transcript (requires auth)',
           'POST /api/v1/ai/entities': 'Extract entities from transcript',
         },
         audiobooks: {

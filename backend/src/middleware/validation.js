@@ -150,14 +150,29 @@ export const validationRules = {
       .withMessage('Transcript ID must be a valid UUID'),
   ],
 
-  // Text-to-speech
-  tts: [
-    body('text')
+  // Stored speech for a transcript (GET /ai/tts/:transcriptId[/audio]).
+  // The server builds the spoken text itself — clients only pick a source.
+  ttsAudio: [
+    param('transcriptId')
       .notEmpty()
-      .withMessage('Text is required')
-      .isLength({ min: 1, max: 5000 })
-      .withMessage('Text must be between 1 and 5000 characters')
-      .trim(),
+      .withMessage('Transcript ID is required')
+      .isUUID()
+      .withMessage('Transcript ID must be a valid UUID'),
+    query('source')
+      .isIn(['transcript', 'summary'])
+      .withMessage('Source must be "transcript" or "summary"'),
+  ],
+
+  // Generate speech for a transcript (POST /ai/tts/:transcriptId)
+  ttsGenerate: [
+    param('transcriptId')
+      .notEmpty()
+      .withMessage('Transcript ID is required')
+      .isUUID()
+      .withMessage('Transcript ID must be a valid UUID'),
+    body('source')
+      .isIn(['transcript', 'summary'])
+      .withMessage('Source must be "transcript" or "summary"'),
   ],
 
   // Entity extraction — mirrors generateSummary, which takes the same body

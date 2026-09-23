@@ -133,8 +133,43 @@ ${conversationContext ? `Previous conversation:\n${conversationContext}\n\n` : '
 };
 
 /**
+ * The exact text TTS will speak for an input: capped at
+ * config.ai.tts.maxTextLength characters plus '...'. The TTS audio cache
+ * hashes this output, so it must stay the only place truncation happens.
+ * Idempotent — preparing already-prepared text returns it unchanged.
+ * @param {string} text - Source text
+ * @returns {string} Text to synthesize
+ */
+export const prepareSpeechText = (text) => {
+  const { maxTextLength } = config.ai.tts;
+  return text.length > maxTextLength ? text.substring(0, maxTextLength) + '...' : text;
+};
+
+/**
+ * Identify the voice the configured provider speaks with. Part of the TTS
+ * cache identity, so changing provider, voice or engine yields new audio.
+ * @returns {{provider: string, voice: string, engine: string}} engine is ''
+ *   for providers without one
+ */
+export const getSpeechVoice = () => {
+  switch (config.ai.provider) {
+    case 'bedrock':
+      return {
+        provider: 'bedrock',
+        voice: config.ai.bedrock.tts.voice,
+        engine: config.ai.bedrock.tts.engine,
+      };
+    case 'gemini':
+      return { provider: 'gemini', voice: config.ai.gemini.tts.voice, engine: '' };
+    default:
+      return { provider: config.ai.provider, voice: '', engine: '' };
+  }
+};
+
+/**
  * Generate speech from text using TTS
- * @param {string} text - Text to convert to speech
+ * @param {string} text - Text to convert to speech (truncated with
+ *   prepareSpeechText)
  * @returns {Promise<{audio: string, format: string, sampleRate: number, channels: number}>}
  *   Base64 raw PCM plus the parameters needed to play it — the sample rate
  *   differs between providers.
@@ -149,13 +184,7 @@ export const generateSpeech = async (text) => {
   try {
     const provider = getProvider();
 
-    // Truncate text to avoid token limits
-    const safeText =
-      text.length > config.ai.tts.maxTextLength
-        ? text.substring(0, config.ai.tts.maxTextLength) + '...'
-        : text;
-
-    const speech = await provider.synthesizeSpeech(safeText);
+    const speech = await provider.synthesizeSpeech(prepareSpeechText(text));
 
     logger.info('Speech generated successfully');
     return speech;
@@ -256,6 +285,8 @@ export const healthCheck = async () => {
 export default {
   generateSummary,
   chatWithTranscript,
+  prepareSpeechText,
+  getSpeechVoice,
   generateSpeech,
   extractEntities,
   healthCheck,
