@@ -3,13 +3,14 @@
  *
  * Mounts the real AI router with the real auth, AI-gate, rate-limit and
  * validation middleware, and checks who gets through.
- * Mocks: aiService, chatService, supabaseService, logger.
+ * Mocks: aiService, chatService, ttsAudioService, supabaseService, logger.
  * AI is disabled through the environment (AI_PROVIDER=none).
  */
 
 import { jest } from '@jest/globals';
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { Readable } from 'stream';
 import request from 'supertest';
 
 // Set before config is imported; dotenv never overrides variables that exist.
@@ -24,11 +25,18 @@ const mockChat = {
   clearConversation: jest.fn(async () => true),
 };
 
+const mockTTS = {
+  findAudio: jest.fn(async () => null),
+  getOrCreateAudio: jest.fn(),
+  openAudio: jest.fn(),
+  toAudioMetadata: jest.fn(() => ({ sampleRate: 16000, format: 'wav' })),
+};
+
 jest.unstable_mockModule('../../src/services/chatService.js', () => mockChat);
+jest.unstable_mockModule('../../src/services/ttsAudioService.js', () => mockTTS);
 jest.unstable_mockModule('../../src/services/aiService.js', () => ({
   generateSummary: jest.fn(),
   chatWithTranscript: jest.fn(),
-  generateSpeech: jest.fn(),
   extractEntities: jest.fn(),
   healthCheck: jest.fn(),
 }));
@@ -72,7 +80,9 @@ describe('authentication', () => {
     ['post', '/api/v1/ai/chat'],
     ['get', `/api/v1/ai/chat/${TRANSCRIPT_ID}`],
     ['delete', `/api/v1/ai/chat/${TRANSCRIPT_ID}`],
-    ['post', '/api/v1/ai/tts'],
+    ['get', `/api/v1/ai/tts/${TRANSCRIPT_ID}?source=summary`],
+    ['get', `/api/v1/ai/tts/${TRANSCRIPT_ID}/audio?source=summary`],
+    ['post', `/api/v1/ai/tts/${TRANSCRIPT_ID}`],
     ['post', '/api/v1/ai/entities'],
   ])('%s %s answers 401 without a token', async (method, path) => {
     const res = await request(app)[method](path).send({});
@@ -118,5 +128,82 @@ describe('saved chat with AI disabled', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+});
+
+describe('TTS audio with AI disabled', () => {
+  it('GET /tts/:transcriptId returns stored metadata, not 503', async () => {
+    mockTTS.findAudio.mockResolvedValueOnce({ sample_rate: 16000 });
+
+    const res = await request(app).get(`/api/v1/ai/tts/${TRANSCRIPT_ID}?source=summary`).set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.audio).toEqual({ sampleRate: 16000, format: 'wav' });
+    expect(mockTTS.findAudio).toHaveBeenCalledWith(TRANSCRIPT_ID, 'summary');
+  });
+
+  it('GET /tts/:transcriptId/audio streams the stored WAV', async () => {
+    mockTTS.openAudio.mockResolvedValueOnce({
+      row: {},
+      body: Readable.from([Buffer.from('RIFF....WAVE')]),
+      contentLength: 12,
+      contentType: 'audio/wav',
+    });
+
+    const res = await request(app)
+      .get(`/api/v1/ai/tts/${TRANSCRIPT_ID}/audio?source=transcript`)
+      .set(auth)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('audio/wav');
+    expect(res.body.toString()).toBe('RIFF....WAVE');
+    expect(mockTTS.openAudio).toHaveBeenCalledWith(TRANSCRIPT_ID, 'transcript');
+  });
+
+  it('GET /tts/:transcriptId/audio passes a 404 through as JSON', async () => {
+    const { APIError } = await import('../../src/middleware/errorHandler.js');
+    mockTTS.openAudio.mockRejectedValueOnce(new APIError('No audio', 404, 'NOT_FOUND'));
+
+    const res = await request(app)
+      .get(`/api/v1/ai/tts/${TRANSCRIPT_ID}/audio?source=summary`)
+      .set(auth);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('POST /tts/:transcriptId answers 503 AI_NOT_CONFIGURED', async () => {
+    const res = await request(app)
+      .post(`/api/v1/ai/tts/${TRANSCRIPT_ID}`)
+      .set(auth)
+      .send({ source: 'summary' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error.code).toBe('AI_NOT_CONFIGURED');
+    expect(mockTTS.getOrCreateAudio).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a missing source', `/api/v1/ai/tts/${TRANSCRIPT_ID}`],
+    ['an unknown source', `/api/v1/ai/tts/${TRANSCRIPT_ID}?source=anything`],
+    ['a non-UUID id', '/api/v1/ai/tts/not-a-uuid?source=summary'],
+  ])('GET /tts rejects %s with 400', async (_case, path) => {
+    const res = await request(app).get(path).set(auth);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockTTS.findAudio).not.toHaveBeenCalled();
+  });
+
+  it('the old raw-text POST /tts no longer exists', async () => {
+    const res = await request(app).post('/api/v1/ai/tts').set(auth).send({ text: 'Say anything' });
+
+    expect(res.status).toBe(404);
   });
 });
