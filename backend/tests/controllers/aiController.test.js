@@ -2,12 +2,12 @@
  * Unit Tests — aiController.js
  *
  * Tests AI controller caching logic and service integration.
- * Mocks: geminiService, supabaseService.
+ * Mocks: aiService, supabaseService.
  */
 
 import { jest } from '@jest/globals';
 
-const mockGemini = {
+const mockAI = {
   generateSummary: jest.fn(),
   chatWithTranscript: jest.fn(),
   generateSpeech: jest.fn(),
@@ -19,7 +19,7 @@ const mockSupabase = {
   cacheAIContent: jest.fn(),
 };
 
-jest.unstable_mockModule('../../src/services/geminiService.js', () => mockGemini);
+jest.unstable_mockModule('../../src/services/aiService.js', () => mockAI);
 jest.unstable_mockModule('../../src/services/supabaseService.js', () => mockSupabase);
 
 jest.unstable_mockModule('../../src/config/logger.js', () => ({
@@ -61,19 +61,19 @@ describe('generateSummary', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.summary).toBe('Cached text');
     expect(res.body.data.cached).toBe(true);
-    expect(mockGemini.generateSummary).not.toHaveBeenCalled();
+    expect(mockAI.generateSummary).not.toHaveBeenCalled();
   });
 
   it('generates new summary when cache misses and caches it', async () => {
     mockSupabase.getCachedAIContent.mockResolvedValueOnce(null);
-    mockGemini.generateSummary.mockResolvedValueOnce('Generated text');
+    mockAI.generateSummary.mockResolvedValueOnce('Generated text');
 
     const req = { body: { transcriptId: 't1', transcript: 'text' } };
     const res = createMockRes();
 
     await generateSummary(req, res);
 
-    expect(mockGemini.generateSummary).toHaveBeenCalledWith('text');
+    expect(mockAI.generateSummary).toHaveBeenCalledWith('text');
     expect(mockSupabase.cacheAIContent).toHaveBeenCalledWith('t1', 'summary', 'Generated text');
     
     expect(res.body.data.summary).toBe('Generated text');
@@ -100,7 +100,7 @@ describe('extractEntities', () => {
   it('generates new entities and caches them as JSON string', async () => {
     mockSupabase.getCachedAIContent.mockResolvedValueOnce(null);
     const generatedEntities = [{ type: 'topic', name: 'Bitcoin' }];
-    mockGemini.extractEntities.mockResolvedValueOnce(generatedEntities);
+    mockAI.extractEntities.mockResolvedValueOnce(generatedEntities);
 
     const req = { body: { transcriptId: 't1', transcript: 'text' } };
     const res = createMockRes();
@@ -120,8 +120,8 @@ describe('extractEntities', () => {
 // ─── chat ───────────────────────────────────────────────────────────────────
 
 describe('chat', () => {
-  it('passes history, message, and transcript to geminiService', async () => {
-    mockGemini.chatWithTranscript.mockResolvedValueOnce('Response');
+  it('passes history, message, and transcript to aiService', async () => {
+    mockAI.chatWithTranscript.mockResolvedValueOnce('Response');
 
     const req = {
       body: {
@@ -134,7 +134,7 @@ describe('chat', () => {
 
     await chat(req, res);
 
-    expect(mockGemini.chatWithTranscript).toHaveBeenCalledWith(
+    expect(mockAI.chatWithTranscript).toHaveBeenCalledWith(
       req.body.history,
       'Hello',
       'text'
@@ -146,17 +146,16 @@ describe('chat', () => {
 // ─── generateSpeech ─────────────────────────────────────────────────────────
 
 describe('generateSpeech', () => {
-  it('returns audio data from geminiService', async () => {
-    const audioData = 'base64-audio-data';
-    mockGemini.generateSpeech.mockResolvedValueOnce(audioData);
+  it('returns audio data and its format from aiService', async () => {
+    const speech = { audio: 'base64-audio-data', format: 'pcm', sampleRate: 16000, channels: 1 };
+    mockAI.generateSpeech.mockResolvedValueOnce(speech);
 
     const req = { body: { text: 'Speak this' } };
     const res = createMockRes();
 
     await generateSpeech(req, res);
 
-    expect(mockGemini.generateSpeech).toHaveBeenCalledWith('Speak this');
-    expect(res.body.data.audio).toBe(audioData);
-    expect(res.body.data.format).toBe('pcm');
+    expect(mockAI.generateSpeech).toHaveBeenCalledWith('Speak this');
+    expect(res.body.data).toEqual(speech);
   });
 });
