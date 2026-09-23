@@ -206,3 +206,40 @@ describe('validationRules.chatHistory', () => {
     expect(next.mock.calls[0][0]).toBeDefined();
   });
 });
+
+// ─── validationRules.ttsAudio / ttsGenerate ─────────────────────────────────
+
+describe('validationRules.ttsAudio', () => {
+  const rules = validationRules.ttsAudio;
+  const params = { transcriptId: '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f' };
+
+  it.each(['transcript', 'summary'])('passes with source "%s"', async (source) => {
+    const { next } = await runValidation(rules, { params, query: { source } });
+    expect(next.mock.calls[0][0]).toBeUndefined();
+  });
+
+  it('fails without a source', async () => {
+    const { next } = await runValidation(rules, { params });
+    expect(next.mock.calls[0][0]).toBeDefined();
+  });
+
+  it('fails with a non-UUID transcriptId param', async () => {
+    const { next } = await runValidation(rules, { params: { transcriptId: 'abc' }, query: { source: 'summary' } });
+    expect(next.mock.calls[0][0]).toBeDefined();
+  });
+});
+
+describe('validationRules.ttsGenerate', () => {
+  const rules = validationRules.ttsGenerate;
+  const params = { transcriptId: '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f' };
+
+  it('passes with a known source in the body', async () => {
+    const { next } = await runValidation(rules, { params, body: { source: 'summary' } });
+    expect(next.mock.calls[0][0]).toBeUndefined();
+  });
+
+  it('fails with an unknown source', async () => {
+    const { next } = await runValidation(rules, { params, body: { source: 'arbitrary text' } });
+    expect(next.mock.calls[0][0]).toBeDefined();
+  });
+});

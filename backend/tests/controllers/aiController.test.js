@@ -2,15 +2,15 @@
  * Unit Tests — aiController.js
  *
  * Tests AI controller caching logic and service integration.
- * Mocks: aiService, chatService, supabaseService.
+ * Mocks: aiService, chatService, supabaseService, ttsAudioService.
  */
 
 import { jest } from '@jest/globals';
+import { PassThrough, Readable } from 'stream';
 
 const mockAI = {
   generateSummary: jest.fn(),
   chatWithTranscript: jest.fn(),
-  generateSpeech: jest.fn(),
   extractEntities: jest.fn(),
 };
 
@@ -29,6 +29,15 @@ jest.unstable_mockModule('../../src/services/aiService.js', () => mockAI);
 jest.unstable_mockModule('../../src/services/chatService.js', () => mockChat);
 jest.unstable_mockModule('../../src/services/supabaseService.js', () => mockSupabase);
 
+const mockTTS = {
+  findAudio: jest.fn(),
+  getOrCreateAudio: jest.fn(),
+  openAudio: jest.fn(),
+  toAudioMetadata: jest.fn((row) => ({ sampleRate: row.sample_rate, format: 'wav' })),
+};
+
+jest.unstable_mockModule('../../src/services/ttsAudioService.js', () => mockTTS);
+
 const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
 jest.unstable_mockModule('../../src/config/logger.js', () => ({
@@ -40,7 +49,9 @@ const {
   chat,
   getChatHistory,
   clearChatHistory,
-  generateSpeech,
+  getSpeechAudio,
+  createSpeechAudio,
+  streamSpeechAudio,
   extractEntities,
   CHAT_CONTEXT_MESSAGES,
   CHAT_HISTORY_LIMIT,
@@ -252,19 +263,121 @@ describe('clearChatHistory', () => {
   });
 });
 
-// ─── generateSpeech ─────────────────────────────────────────────────────────
+// ─── TTS audio ──────────────────────────────────────────────────────────────
 
-describe('generateSpeech', () => {
-  it('returns audio data and its format from aiService', async () => {
-    const speech = { audio: 'base64-audio-data', format: 'pcm', sampleRate: 16000, channels: 1 };
-    mockAI.generateSpeech.mockResolvedValueOnce(speech);
+const TTS_ROW = { sample_rate: 16000, s3_key: 'tts-audio/secret.wav' };
 
-    const req = { body: { text: 'Speak this' } };
+describe('getSpeechAudio', () => {
+  it('returns metadata for stored audio', async () => {
+    mockTTS.findAudio.mockResolvedValueOnce(TTS_ROW);
+
+    const req = { params: { transcriptId: 't1' }, query: { source: 'summary' } };
     const res = createMockRes();
 
-    await generateSpeech(req, res);
+    await getSpeechAudio(req, res);
 
-    expect(mockAI.generateSpeech).toHaveBeenCalledWith('Speak this');
-    expect(res.body.data).toEqual(speech);
+    expect(mockTTS.findAudio).toHaveBeenCalledWith('t1', 'summary');
+    expect(res.body.data).toEqual({ audio: { sampleRate: 16000, format: 'wav' } });
+  });
+
+  it('returns null audio when nothing has been generated', async () => {
+    mockTTS.findAudio.mockResolvedValueOnce(null);
+
+    const req = { params: { transcriptId: 't1' }, query: { source: 'summary' } };
+    const res = createMockRes();
+
+    await getSpeechAudio(req, res);
+
+    expect(res.body.data).toEqual({ audio: null });
+  });
+});
+
+describe('createSpeechAudio', () => {
+  it('returns metadata and whether the audio was already stored', async () => {
+    mockTTS.getOrCreateAudio.mockResolvedValueOnce({ row: TTS_ROW, cached: false });
+
+    const req = { params: { transcriptId: 't1' }, body: { source: 'transcript' } };
+    const res = createMockRes();
+
+    await createSpeechAudio(req, res);
+
+    expect(mockTTS.getOrCreateAudio).toHaveBeenCalledWith('t1', 'transcript');
+    expect(res.body.data).toEqual({ audio: { sampleRate: 16000, format: 'wav' }, cached: false });
+    expect(JSON.stringify(res.body)).not.toContain('secret');
+  });
+});
+
+describe('streamSpeechAudio', () => {
+  /** Writable response that records headers and the bytes piped into it. */
+  function createStreamRes() {
+    const res = new PassThrough();
+    res.headers = {};
+    res.status = jest.fn(() => res);
+    res.set = jest.fn((name, value) => {
+      res.headers[name] = value;
+      return res;
+    });
+    res.chunks = [];
+    res.on('data', (chunk) => res.chunks.push(chunk));
+    return res;
+  }
+
+  it('streams the stored WAV with its headers', async () => {
+    mockTTS.openAudio.mockResolvedValueOnce({
+      row: TTS_ROW,
+      body: Readable.from([Buffer.from('RIFF'), Buffer.from('data')]),
+      contentLength: 8,
+      contentType: 'audio/wav',
+    });
+
+    const req = { params: { transcriptId: 't1' }, query: { source: 'summary' } };
+    const res = createStreamRes();
+
+    await streamSpeechAudio(req, res);
+
+    expect(mockTTS.openAudio).toHaveBeenCalledWith('t1', 'summary');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.headers['Content-Type']).toBe('audio/wav');
+    expect(res.headers['Content-Length']).toBe('8');
+    expect(res.headers['Cache-Control']).toBe('private, no-cache');
+    expect(Buffer.concat(res.chunks).toString()).toBe('RIFFdata');
+  });
+
+  it('lets a missing-audio error reach the error handler before streaming', async () => {
+    const notFound = Object.assign(new Error('No audio'), { statusCode: 404 });
+    mockTTS.openAudio.mockRejectedValueOnce(notFound);
+
+    const req = { params: { transcriptId: 't1' }, query: { source: 'summary' } };
+    const res = createStreamRes();
+
+    await expect(streamSpeechAudio(req, res)).rejects.toBe(notFound);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('logs and destroys the response when the stream breaks mid-way', async () => {
+    const body = new Readable({
+      read() {
+        this.destroy(new Error('S3 connection reset'));
+      },
+    });
+    mockTTS.openAudio.mockResolvedValueOnce({
+      row: TTS_ROW,
+      body,
+      contentLength: undefined,
+      contentType: 'audio/wav',
+    });
+
+    const req = { params: { transcriptId: 't1' }, query: { source: 'summary' } };
+    const res = createStreamRes();
+    res.on('error', () => {});
+
+    await streamSpeechAudio(req, res);
+
+    expect(res.headers['Content-Length']).toBeUndefined();
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'TTS audio stream failed',
+      expect.objectContaining({ transcriptId: 't1', error: 'S3 connection reset' })
+    );
+    expect(res.destroyed).toBe(true);
   });
 });
