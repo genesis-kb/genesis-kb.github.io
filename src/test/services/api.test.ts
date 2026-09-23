@@ -168,3 +168,67 @@ describe('api.request (via api.get/post)', () => {
     })
   })
 })
+
+describe('api.getBinary', () => {
+  const originalFetch = global.fetch
+
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    vi.restoreAllMocks()
+  })
+
+  it('returns the response bytes and sends the Bearer token', async () => {
+    localStorage.setItem('btc-auth-token', 'my-jwt-token')
+
+    let capturedHeaders: Headers | undefined
+    global.fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedHeaders = new Headers(init?.headers as HeadersInit)
+      return new Response(new Uint8Array([82, 73, 70, 70]), {
+        status: 200,
+        headers: { 'content-type': 'audio/wav' },
+      })
+    }) as unknown as typeof fetch
+
+    const { api } = await import('../../../services/api')
+    const bytes = await api.getBinary('/api/v1/ai/tts/t1/audio?source=summary')
+
+    expect(new TextDecoder().decode(bytes)).toBe('RIFF')
+    expect(capturedHeaders?.get('Authorization')).toBe('Bearer my-jwt-token')
+  })
+
+  it('throws the JSON error code from an error response', async () => {
+    global.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ success: false, error: { code: 'NOT_FOUND', message: 'No audio' } }),
+        { status: 404, headers: { 'content-type': 'application/json' } }
+      )
+    ) as unknown as typeof fetch
+
+    const { api } = await import('../../../services/api')
+
+    await expect(api.getBinary('/api/v1/ai/tts/t1/audio?source=summary')).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+      message: 'No audio',
+    })
+  })
+
+  it('clears the token on 401', async () => {
+    localStorage.setItem('btc-auth-token', 'expired')
+    global.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ success: false, error: { code: 'UNAUTHORIZED', message: 'Expired' } }),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      )
+    ) as unknown as typeof fetch
+
+    const { api } = await import('../../../services/api')
+
+    await expect(api.getBinary('/x')).rejects.toBeInstanceOf(APIError)
+    expect(localStorage.getItem('btc-auth-token')).toBeNull()
+  })
+})
