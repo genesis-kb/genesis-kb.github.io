@@ -1,15 +1,20 @@
 /**
  * AI Routes
  *
- * POST /summary   — Pre-generated summary from the DB. No AI call, no auth:
- *                   transcripts are public, so their summaries are too.
- * POST /chat      — AI chat over transcript context. Auth required.
- * POST /tts       — AI text-to-speech. Auth required.
- * POST /entities  — AI entity extraction. Auth required.
+ * POST   /summary             — Pre-generated summary from the DB. No AI call,
+ *                               no auth: transcripts are public, so their
+ *                               summaries are too.
+ * POST   /chat                — AI chat over transcript context; saves the
+ *                               exchange. Auth required.
+ * GET    /chat/:transcriptId  — The user's saved chat. Auth required.
+ * DELETE /chat/:transcriptId  — Clear the user's saved chat. Auth required.
+ * POST   /tts                 — AI text-to-speech. Auth required.
+ * POST   /entities            — AI entity extraction. Auth required.
  *
  * The three AI-backed routes cost money per call, so each one runs
- * behind requireAuth, requireAIConfigured (503 when no AI provider is configured),
- * and a rate limiter.
+ * behind requireAuth, requireAIConfigured (503 when no AI provider is
+ * configured), and a rate limiter. The saved-chat routes make no model call,
+ * so they skip the AI gate and use the user-data limiter.
  */
 
 import { Router } from 'express';
@@ -18,7 +23,7 @@ import { sendSuccess } from '../utils/responseHelper.js';
 import { APIError, asyncHandler } from '../middleware/errorHandler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAIConfigured } from '../middleware/aiAvailability.js';
-import { aiLimiter, ttsLimiter } from '../middleware/rateLimiter.js';
+import { aiLimiter, ttsLimiter, userDataLimiter } from '../middleware/rateLimiter.js';
 import { validate, validationRules } from '../middleware/validation.js';
 import * as supabaseService from '../services/supabaseService.js';
 import logger from '../config/logger.js';
@@ -85,6 +90,39 @@ router.post(
   '/chat',
   ...aiGuards(aiLimiter, validationRules.chat),
   asyncHandler(aiController.chat)
+);
+
+/**
+ * Middleware chain for reading and clearing a saved chat. No model call is
+ * made, so these use the user-data limiter instead of the AI gate/limiter.
+ */
+const chatHistoryGuards = [
+  requireAuth,
+  userDataLimiter,
+  ...validationRules.chatHistory,
+  validate,
+];
+
+/**
+ * @route   GET /api/v1/ai/chat/:transcriptId
+ * @desc    Get the user's saved chat with a transcript
+ * @access  Private
+ */
+router.get(
+  '/chat/:transcriptId',
+  ...chatHistoryGuards,
+  asyncHandler(aiController.getChatHistory)
+);
+
+/**
+ * @route   DELETE /api/v1/ai/chat/:transcriptId
+ * @desc    Delete the user's saved chat with a transcript
+ * @access  Private
+ */
+router.delete(
+  '/chat/:transcriptId',
+  ...chatHistoryGuards,
+  asyncHandler(aiController.clearChatHistory)
 );
 
 /**

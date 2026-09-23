@@ -132,10 +132,22 @@ export const validationRules = {
       .withMessage('Transcript context is required')
       .isLength({ min: 100 })
       .withMessage('Transcript must be at least 100 characters'),
-    body('history')
-      .optional()
-      .isArray()
-      .withMessage('History must be an array'),
+    // History is loaded from the saved chat for this transcript, so a
+    // client-sent history is ignored rather than validated.
+    body('transcriptId')
+      .notEmpty()
+      .withMessage('Transcript ID is required')
+      .isUUID()
+      .withMessage('Transcript ID must be a valid UUID'),
+  ],
+
+  // Saved chat for a transcript (GET/DELETE /ai/chat/:transcriptId)
+  chatHistory: [
+    param('transcriptId')
+      .notEmpty()
+      .withMessage('Transcript ID is required')
+      .isUUID()
+      .withMessage('Transcript ID must be a valid UUID'),
   ],
 
   // Text-to-speech
