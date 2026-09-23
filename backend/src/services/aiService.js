@@ -98,11 +98,12 @@ export const chatWithTranscript = async (history, currentMessage, contextTranscr
       config.ai.context.maxTranscriptLength
     );
 
-    // Build conversation context
+    // Build conversation context. The caller decides how much history to
+    // send (the chat controller loads the last CHAT_CONTEXT_MESSAGES saved
+    // messages), so all of it is used.
     let conversationContext = '';
     if (history && history.length > 0) {
       conversationContext = history
-        .slice(-5) // Only use last 5 messages for context
         .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.text}`)
         .join('\n');
     }
