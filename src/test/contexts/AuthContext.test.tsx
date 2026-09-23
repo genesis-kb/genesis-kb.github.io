@@ -8,6 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -49,6 +51,15 @@ function AuthConsumer({ onRender }: { onRender: (auth: ReturnType<typeof useAuth
   )
 }
 
+/** AuthProvider needs a QueryClient (it clears user-scoped queries). */
+function Providers({ children, client = new QueryClient() }: { children: ReactNode; client?: QueryClient }) {
+  return (
+    <QueryClientProvider client={client}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  )
+}
+
 describe('AuthContext', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -65,9 +76,9 @@ describe('AuthContext', () => {
     const captured: ReturnType<typeof useAuth>[] = []
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer onRender={(auth) => captured.push(auth)} />
-      </AuthProvider>
+      </Providers>
     )
 
     // After mount, should finish loading with no user
@@ -91,9 +102,9 @@ describe('AuthContext', () => {
     const captured: ReturnType<typeof useAuth>[] = []
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer onRender={(auth) => captured.push(auth)} />
-      </AuthProvider>
+      </Providers>
     )
 
     await waitFor(() => {
@@ -114,9 +125,9 @@ describe('AuthContext', () => {
     const captured: ReturnType<typeof useAuth>[] = []
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer onRender={(auth) => captured.push(auth)} />
-      </AuthProvider>
+      </Providers>
     )
 
     await waitFor(() => {
@@ -139,9 +150,9 @@ describe('AuthContext', () => {
     const user = userEvent.setup()
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer onRender={(auth) => captured.push(auth)} />
-      </AuthProvider>
+      </Providers>
     )
 
     // Wait for user to load
@@ -158,14 +169,69 @@ describe('AuthContext', () => {
     expect(localStorage.getItem('btc-auth-token')).toBeNull()
   })
 
+  it("logout() removes the user's cached queries and keeps public ones", async () => {
+    localStorage.setItem('btc-auth-token', 'valid-token')
+
+    const { authApi } = await import('../../../services/authService')
+    const mockUser = { id: 'u1', email: 'test@test.com', name: 'Test', avatarUrl: null, createdAt: '' }
+    vi.mocked(authApi.me).mockResolvedValueOnce({ user: mockUser })
+
+    const client = new QueryClient()
+    client.setQueryData(['chatHistory', 'u1', 't1'], [{ role: 'user', content: 'secret' }])
+    client.setQueryData(['notes'], [{ id: 'n1' }])
+    client.setQueryData(['bookmarks'], [{ id: 'b1' }])
+    client.setQueryData(['highlights'], [{ id: 'h1' }])
+    client.setQueryData(['transcripts'], [{ id: 't1' }])
+
+    const captured: ReturnType<typeof useAuth>[] = []
+    const user = userEvent.setup()
+
+    render(
+      <Providers client={client}>
+        <AuthConsumer onRender={(auth) => captured.push(auth)} />
+      </Providers>
+    )
+
+    await waitFor(() => expect(captured[captured.length - 1].user).not.toBeNull())
+    await user.click(screen.getByTestId('logout'))
+
+    await waitFor(() => expect(captured[captured.length - 1].user).toBeNull())
+    expect(client.getQueryData(['chatHistory', 'u1', 't1'])).toBeUndefined()
+    expect(client.getQueryData(['notes'])).toBeUndefined()
+    expect(client.getQueryData(['bookmarks'])).toBeUndefined()
+    expect(client.getQueryData(['highlights'])).toBeUndefined()
+    expect(client.getQueryData(['transcripts'])).toEqual([{ id: 't1' }])
+  })
+
+  it("login() removes the previous user's cached queries", async () => {
+    const { authApi } = await import('../../../services/authService')
+    const mockUser = { id: 'u2', email: 'b@test.com', name: 'B', avatarUrl: null, createdAt: '' }
+    vi.mocked(authApi.login).mockResolvedValueOnce({ user: mockUser, token: 't' })
+
+    const client = new QueryClient()
+    client.setQueryData(['chatHistory', 'u1', 't1'], [{ role: 'user', content: 'secret' }])
+
+    const captured: ReturnType<typeof useAuth>[] = []
+    render(
+      <Providers client={client}>
+        <AuthConsumer onRender={(auth) => captured.push(auth)} />
+      </Providers>
+    )
+    await waitFor(() => expect(captured[captured.length - 1].isLoading).toBe(false))
+
+    await act(() => captured[captured.length - 1].login('b@test.com', 'pw'))
+
+    expect(client.getQueryData(['chatHistory', 'u1', 't1'])).toBeUndefined()
+  })
+
   it('openLoginModal / closeLoginModal toggle isLoginModalOpen', async () => {
     const captured: ReturnType<typeof useAuth>[] = []
     const user = userEvent.setup()
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer onRender={(auth) => captured.push(auth)} />
-      </AuthProvider>
+      </Providers>
     )
 
     await waitFor(() => expect(captured[captured.length - 1].isLoading).toBe(false))
