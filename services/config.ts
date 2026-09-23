@@ -26,6 +26,8 @@ export const config = {
     // AI
     summary: '/api/v1/ai/summary',
     chat: '/api/v1/ai/chat',
+    // Saved chat for a transcript: GET / DELETE `${chatHistory}/${transcriptId}`
+    chatHistory: '/api/v1/ai/chat',
     tts: '/api/v1/ai/tts',
     entities: '/api/v1/ai/entities',
 

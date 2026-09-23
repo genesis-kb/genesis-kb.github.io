@@ -644,6 +644,7 @@ const TranscriptDetail = () => {
               {activeTab === "chat" && (
                 <motion.div key="chat" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={cn(focusMode && "h-full")}>
                   <TranscriptChat
+                    key={transcript.id}
                     transcript={transcript}
                     pendingPrompt={pendingChatPrompt}
                     onPromptConsumed={() => setPendingChatPrompt(undefined)}
@@ -716,6 +717,7 @@ const TranscriptDetail = () => {
                   )}
                   {rightTab === "chat" && (
                     <TranscriptChat 
+                      key={transcript.id}
                       transcript={transcript} 
                       pendingPrompt={pendingChatPrompt}
                       onPromptConsumed={() => setPendingChatPrompt(undefined)}
