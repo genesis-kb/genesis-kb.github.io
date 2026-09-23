@@ -4,7 +4,7 @@
  */
 
 import * as supabaseService from '../services/supabaseService.js';
-import * as geminiService from '../services/geminiService.js';
+import * as aiService from '../services/aiService.js';
 import { sendSuccess } from '../utils/responseHelper.js';
 import config from '../config/index.js';
 import logger from '../config/logger.js';
@@ -31,31 +31,32 @@ export const detailedHealthCheck = async (req, res) => {
   logger.info('Running detailed health check...');
 
   // Check all services in parallel
-  const [dbHealthy, geminiHealthy] = await Promise.all([
+  const [dbHealthy, aiHealthy] = await Promise.all([
     supabaseService.healthCheck().catch(() => false),
-    geminiService.healthCheck().catch(() => false),
+    aiService.healthCheck().catch(() => false),
   ]);
 
-  // geminiHealthy is null when AI is switched off for lack of a usable key.
+  // aiHealthy is null when AI is switched off for lack of a usable provider.
   // That is a configuration choice, not a fault, so it reports as 'disabled'
   // and is left out of overallHealthy — otherwise a key-less deployment would
   // answer 503 on every probe and read as down to a load balancer.
-  const geminiDisabled = geminiHealthy === null;
+  const aiDisabled = aiHealthy === null;
 
   const services = {
     database: {
       status: dbHealthy ? 'healthy' : 'unhealthy',
       message: dbHealthy ? 'Connected' : 'Connection failed',
     },
-    gemini: geminiDisabled
+    ai: aiDisabled
       ? { status: 'disabled', message: 'No AI provider configured' }
       : {
-          status: geminiHealthy ? 'healthy' : 'unhealthy',
-          message: geminiHealthy ? 'API accessible' : 'API not accessible',
+          status: aiHealthy ? 'healthy' : 'unhealthy',
+          provider: config.ai.provider,
+          message: aiHealthy ? 'API accessible' : 'API not accessible',
         },
   };
 
-  const overallHealthy = dbHealthy && (geminiDisabled || geminiHealthy);
+  const overallHealthy = dbHealthy && (aiDisabled || aiHealthy);
 
   const response = {
     status: overallHealthy ? 'healthy' : 'degraded',
