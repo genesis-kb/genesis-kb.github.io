@@ -21,6 +21,7 @@ import {
   isBookmarkStorePersistent,
 } from '@/lib/bookmarkStore'
 import { migrateLibrary } from '@/lib/migrateLibrary'
+import { BOOKMARKS_KEY, HIGHLIGHTS_KEY } from '@/lib/queryKeys'
 import { useAuth } from './useAuth'
 import { bookmarksApi, highlightsApi } from '../../services/bookmarksApiService'
 import {
@@ -32,9 +33,7 @@ import {
 const LIBRARY_SYNC_EVENT = 'btc-library-sync'
 const PRIVATE_MODE_NOTICE_KEY = 'btc-library-private-mode-notice-shown'
 
-// ─── React Query keys ───────────────────────────────────────────────────────
-const BOOKMARKS_KEY = ['bookmarks'] as const
-const HIGHLIGHTS_KEY = ['highlights'] as const
+// React Query keys live in @/lib/queryKeys so logout can clear them.
 
 /**
  * Represents a transcript object with the fields we need to snapshot

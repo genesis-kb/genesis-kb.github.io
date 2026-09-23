@@ -10,13 +10,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { notesApi } from '../../services/notesService'
 import { useAuth } from './useAuth'
+import { NOTES_QUERY_KEY } from '@/lib/queryKeys'
 import type {
   Note,
   CreateNoteParams,
   DEFAULT_NOTES,
 } from '@/types/notes'
 
-const NOTES_QUERY_KEY = ['notes'] as const
 
 export interface UseNotesReturn {
   notes: Note[]

@@ -8,6 +8,7 @@
  * - On mount: validates stored token via GET /auth/me
  * - Provides login(), register(), logout()
  * - Controls the login modal open/close state
+ * - Drops cached user-scoped queries whenever the signed-in user changes
  */
 
 import {
@@ -19,7 +20,9 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../../services/authService';
+import { removeUserScopedQueries } from '@/lib/queryKeys';
 import type { User, AuthContextType } from '@/types/auth';
 
 const AUTH_TOKEN_KEY = 'btc-auth-token';
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   /**
    * Persist or clear the token in localStorage
@@ -84,12 +88,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback(
     async (email: string, password: string) => {
       const data = await authApi.login(email, password);
+      // A session can end without logout() (e.g. a 401 clears the token), so
+      // clear the previous user's cached data on every sign-in too.
+      removeUserScopedQueries(queryClient);
       persistToken(data.token);
       setUser(data.user);
       setIsLoginModalOpen(false);
       toast.success(`Welcome back, ${data.user.name || data.user.email}!`);
     },
-    [persistToken]
+    [persistToken, queryClient]
   );
 
   /**
@@ -98,12 +105,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = useCallback(
     async (email: string, password: string, name?: string) => {
       const data = await authApi.register(email, password, name);
+      removeUserScopedQueries(queryClient);
       persistToken(data.token);
       setUser(data.user);
       setIsLoginModalOpen(false);
       toast.success('Account created! Welcome aboard.');
     },
-    [persistToken]
+    [persistToken, queryClient]
   );
 
   /**
@@ -112,8 +120,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(() => {
     persistToken(null);
     setUser(null);
+    removeUserScopedQueries(queryClient);
     toast.success('Logged out');
-  }, [persistToken]);
+  }, [persistToken, queryClient]);
 
   const openLoginModal = useCallback(() => setIsLoginModalOpen(true), []);
   const closeLoginModal = useCallback(() => setIsLoginModalOpen(false), []);
