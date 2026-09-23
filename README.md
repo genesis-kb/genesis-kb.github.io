@@ -1,6 +1,6 @@
 # BitScribe
 
-A specialized transcription and AI summarization dashboard for Bitcoin conferences. Features real-time AI analysis, interactive chat-with-transcript, AI-powered audio generation, and a dedicated transcript reader — all powered by a Node.js/Express backend with Supabase and Google Gemini AI.
+A specialized transcription and AI summarization dashboard for Bitcoin conferences. Features real-time AI analysis, interactive chat-with-transcript, AI-powered audio generation, and a dedicated transcript reader — all powered by a Node.js/Express backend with Supabase and a pluggable AI provider (Amazon Bedrock by default, or Google Gemini).
 
 ## Architecture
 
@@ -13,7 +13,8 @@ A specialized transcription and AI summarization dashboard for Bitcoin conferenc
                                          │
                                          ▼
                               ┌─────────────────────┐
-                              │   Google Gemini AI   │
+                              │  AI provider         │
+                              │  Bedrock+Polly/Gemini│
                               │   (Summary / Chat /  │
                               │    TTS / Entities)   │
                               └─────────────────────┘
@@ -24,7 +25,7 @@ A specialized transcription and AI summarization dashboard for Bitcoin conferenc
 - **Conference Archive** — Browse conferences with grouped talks, expandable session lists
 - **Transcript Detail** — 4-tab view: Summary, Transcript, Chat, Audio
 - **Transcript Reader** — Dedicated tab with paragraph grouping, line-number gutter, alternating rows, and show-more pagination
-- **AI Summary** — Auto-generated or on-demand summaries via Gemini (with caching)
+- **AI Summary** — Auto-generated or on-demand summaries via the configured AI provider (with caching)
 - **Chat with Transcript** — Conversational Q&A grounded in transcript context
 - **Audio Generation** — Text-to-speech playback with player controls (play/pause, skip, progress bar)
 - **Global Search** — Keyboard-triggered (Ctrl+K / ⌘K) overlay with debounced backend search, grouped results by conference
@@ -51,7 +52,7 @@ A specialized transcription and AI summarization dashboard for Bitcoin conferenc
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18 or higher
-- A [Google Gemini API Key](https://aistudio.google.com/)
+- AWS credentials with Amazon Bedrock and Polly access (or a [Google Gemini API Key](https://aistudio.google.com/) with `AI_PROVIDER=gemini`)
 - A [Supabase](https://supabase.com/) project for persistent storage
 
 ## Quick Start
@@ -77,7 +78,11 @@ Edit `backend/.env`:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
-GEMINI_API_KEY=your-gemini-api-key
+AI_PROVIDER=bedrock
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=ap-south-1
+BEDROCK_REGION=us-east-1
 ```
 
 ### 3. Start Both Servers
@@ -127,7 +132,7 @@ bitcoin_transcripts_frontend/
 │   ├── api.ts                      # HTTP client (Axios)
 │   ├── config.ts                   # API base URL configuration
 │   ├── dataService.ts              # Transcript & conference data ops
-│   └── geminiService.ts            # AI operations (via backend proxy)
+│   └── aiService.ts                # AI operations (via backend proxy)
 ├── types.ts                        # TypeScript interfaces (RawTranscript, etc.)
 ├── backend/                        # Express.js backend (see backend/README.md)
 ├── vite.config.ts
@@ -237,8 +242,8 @@ The frontend build outputs to `dist/` — serve with any static file server or d
 3. Verify the RLS policy exists (see Database Setup above)
 
 **AI features not working:**
-1. Verify `GEMINI_API_KEY` is set in `backend/.env`
-2. Check backend logs for rate limit or API key errors
+1. Verify `AI_PROVIDER` and its settings in `backend/.env` (`AWS_REGION` + AWS credentials for `bedrock`, `GEMINI_API_KEY` for `gemini`)
+2. Check `GET /api/v1/health/detailed` and the backend logs for credential, model-access or rate limit errors
 
 **CORS errors:**
 1. Ensure frontend URL is listed in `CORS_ORIGINS` in `backend/.env`

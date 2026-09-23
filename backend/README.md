@@ -1,12 +1,12 @@
 # Bitcoin Transcripts Backend
 
-Node.js/Express backend API for the BitScribe platform. Acts as the single gateway between the React frontend and all external services — Supabase (PostgreSQL) for data and Google Gemini AI for summaries, chat, TTS, and entity extraction. The frontend never talks directly to Supabase or Gemini.
+Node.js/Express backend API for the BitScribe platform. Acts as the single gateway between the React frontend and all external services — Supabase (PostgreSQL) for data and a pluggable AI provider (Amazon Bedrock + Polly, or Google Gemini) for summaries, chat, TTS, and entity extraction. The frontend never talks directly to Supabase or the AI provider.
 
 ## Features
 
 - **RESTful API** — Clean, versioned endpoints (`/api/v1/`)
 - **Supabase Integration** — PostgreSQL via Supabase client with lazy initialization and operation timeouts (10s default)
-- **Gemini AI** — Summary generation, conversational chat, text-to-speech (PCM audio), and entity extraction
+- **AI (Bedrock or Gemini)** — Summary generation, conversational chat, text-to-speech (PCM audio), and entity extraction, via the provider selected by `AI_PROVIDER`
 - **Search** — Case-insensitive `ILIKE` search across title + raw_text + corrected_text, sanitized input, capped at 50 results
 - **Rate Limiting** — Tiered protection (general: 100/min, AI: 20/min, TTS: 5/min)
 - **Input Validation** — express-validator rules per endpoint (UUID params, query length 2–200, body constraints)
@@ -19,7 +19,7 @@ Node.js/Express backend API for the BitScribe platform. Acts as the single gatew
 ```
 Frontend (React) ──▶ Backend (Express, port 5000) ──▶ Supabase (PostgreSQL)
                                │
-                               └──▶ Google Gemini AI
+                               └──▶ AI provider (Amazon Bedrock + Polly, or Google Gemini)
 ```
 
 ## Project Structure
@@ -31,6 +31,7 @@ backend/
 │   ├── server.js               # Server entry point (port binding)
 │   ├── config/
 │   │   ├── index.js            # Environment config loader
+│   │   ├── aws.js              # Shared AWS SDK client options (credentials, region, timeouts)
 │   │   └── logger.js           # Winston logger setup
 │   ├── controllers/
 │   │   ├── transcriptController.js  # Transcript CRUD + search handlers
@@ -49,7 +50,10 @@ backend/
 │   │   └── index.js            # Route aggregator
 │   ├── services/
 │   │   ├── supabaseService.js  # Supabase client init, CRUD, search, cache ops
-│   │   ├── geminiService.js    # Gemini AI client (summary, chat, TTS, entities)
+│   │   ├── aiService.js        # Provider-neutral AI ops (summary, chat, TTS, entities)
+│   │   ├── ai/
+│   │   │   ├── bedrockProvider.js  # Bedrock Converse (text) + Polly (speech)
+│   │   │   └── geminiProvider.js   # Gemini (text + speech)
 │   │   └── index.js            # Barrel export
 │   └── utils/
 │       ├── dataProcessor.js    # transformToConferences() — groups transcripts by event
@@ -81,7 +85,8 @@ cp .env.example .env
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
-GEMINI_API_KEY=your-gemini-api-key
+AI_PROVIDER=bedrock
+AWS_REGION=us-east-1
 ```
 
 ### Running
@@ -121,7 +126,7 @@ Server runs at `http://localhost:5000`.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/v1/health` | Basic health check |
-| GET | `/api/v1/health/detailed` | Detailed service status (Supabase + Gemini connectivity) |
+| GET | `/api/v1/health/detailed` | Detailed service status (Supabase + AI provider connectivity) |
 
 ## Search — How It Works
 
@@ -268,7 +273,17 @@ Exceeded limits return `429 Too Many Requests`.
 | `PORT` | Server port | No | 5000 |
 | `SUPABASE_URL` | Supabase project URL | **Yes** | — |
 | `SUPABASE_ANON_KEY` | Supabase anonymous key | **Yes** | — |
-| `GEMINI_API_KEY` | Google Gemini API key | **Yes** | — |
+| `AI_PROVIDER` | `bedrock`, `gemini` or `none` | No | `gemini` if `GEMINI_API_KEY` is usable, else `none` |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | AWS keys, used only when both are set; otherwise `AWS_PROFILE` or an IAM role | No | — |
+| `AWS_SESSION_TOKEN` | Session token for temporary AWS credentials | No | — |
+| `AWS_REGION` | Default AWS region (falls back to `AWS_DEFAULT_REGION`) | With `bedrock`, unless `BEDROCK_REGION` is set | — |
+| `BEDROCK_REGION` | Region for Bedrock, where the model is available | No | `AWS_REGION` |
+| `POLLY_REGION` | Region for Polly | No | `AWS_REGION` |
+| `BEDROCK_MODEL_ID` | Bedrock model or inference profile ID (Converse API) | No | `amazon.nova-lite-v1:0` |
+| `BEDROCK_MAX_TOKENS` | Output token cap per Bedrock call | No | 4096 |
+| `POLLY_VOICE_ID` | Polly voice | No | Joanna |
+| `POLLY_ENGINE` | Polly engine (`standard`, `neural`, `generative`) | No | neural |
+| `GEMINI_API_KEY` | Google Gemini API key | With `gemini` | — |
 | `CORS_ORIGINS` | Allowed origins (comma-separated) | No | localhost:5173,3000 |
 | `LOG_LEVEL` | Logging level | No | info |
 | `RATE_LIMIT_WINDOW_MS` | Rate limit window (ms) | No | 60000 |
@@ -294,7 +309,8 @@ All errors follow a standard shape:
 | `NOT_FOUND` | 404 | Resource not found (invalid transcript ID) |
 | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests in window |
 | `DATABASE_ERROR` | 500 | Supabase operation failed or timed out |
-| `AI_SERVICE_ERROR` | 500 | Gemini API error |
+| `AI_SERVICE_ERROR` | 500 | AI provider error |
+| `AI_NOT_CONFIGURED` | 503 | No AI provider configured |
 
 ## Security Features
 
