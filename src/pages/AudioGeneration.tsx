@@ -2,17 +2,20 @@
 import { Play, Pause, Download, Volume2, SkipForward, SkipBack, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { loadSpeechAudio } from "../../services/aiService";
+import { loadSpeechAudio, loadStoredSpeechAudio } from "../../services/aiService";
+import { useAuth } from "@/hooks/useAuth";
 import type { Talk } from "../../types";
 import { useConferences } from "@/hooks/useTranscripts";
 
 const AudioGeneration = () => {
   const [selectedTalk, setSelectedTalk] = useState<{ talk: Talk; conferenceName: string } | null>(null);
   const { data: conferences = [], isLoading } = useConferences();
+  const { user } = useAuth();
 
   // Audio state
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingStored, setIsLoadingStored] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState("00:00");
@@ -88,6 +91,40 @@ const AudioGeneration = () => {
     setSelectedTalk(item);
   };
 
+  const showAudio = async (wav: ArrayBuffer) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+
+    const buffer = await audioContextRef.current.decodeAudioData(wav);
+    audioBufferRef.current = buffer;
+    setTotalDuration(formatTime(buffer.duration));
+    setIsGenerated(true);
+  };
+
+  // Show audio someone already generated as soon as a talk is selected.
+  const selectedTalkId = selectedTalk?.talk.id;
+  useEffect(() => {
+    if (!user || !selectedTalkId) return;
+
+    let cancelled = false;
+    setIsLoadingStored(true);
+
+    loadStoredSpeechAudio(selectedTalkId, "summary")
+      .then((wav) => (wav && !cancelled ? showAudio(wav) : undefined))
+      .catch(() => {
+        // Nothing to show yet — the Generate button still works.
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingStored(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTalkId, user?.id]);
+
   const handleGenerate = async () => {
     if (!selectedTalk || isGenerating) return;
     setIsGenerating(true);
@@ -96,16 +133,7 @@ const AudioGeneration = () => {
     try {
       // The backend reads the summary (or the transcript when there is none),
       // generating the audio only the first time anyone asks for it.
-      const wav = await loadSpeechAudio(selectedTalk.talk.id, "summary");
-
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-
-      const buffer = await audioContextRef.current.decodeAudioData(wav);
-      audioBufferRef.current = buffer;
-      setTotalDuration(formatTime(buffer.duration));
-      setIsGenerated(true);
+      await showAudio(await loadSpeechAudio(selectedTalk.talk.id, "summary"));
     } catch (err) {
       console.error("TTS error:", err);
       setError(err instanceof Error ? err.message : "Failed to generate audio.");
@@ -126,6 +154,11 @@ const AudioGeneration = () => {
       }
       setIsPlaying(false);
     } else {
+      // A context created before any user gesture (stored audio loaded on
+      // selection) starts suspended, so resume it on this click.
+      if (audioContextRef.current.state === "suspended") {
+        void audioContextRef.current.resume();
+      }
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBufferRef.current;
       source.connect(audioContextRef.current.destination);
@@ -228,13 +261,18 @@ const AudioGeneration = () => {
                     </p>
                     <button
                       onClick={handleGenerate}
-                      disabled={isGenerating}
+                      disabled={isGenerating || isLoadingStored}
                       className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-semibold text-sm hover:scale-[1.02] transition-transform disabled:opacity-50"
                     >
                       {isGenerating ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
                           Generating...
+                        </>
+                      ) : isLoadingStored ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading...
                         </>
                       ) : (
                         <>
