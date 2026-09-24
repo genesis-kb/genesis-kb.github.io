@@ -24,6 +24,7 @@ import {
   getChatHistory,
   clearChat,
   loadSpeechAudio,
+  loadStoredSpeechAudio,
 } from '../../../services/aiService'
 
 const TRANSCRIPT_ID = '3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f'
@@ -96,6 +97,46 @@ describe('saved chat endpoints', () => {
     await clearChat(TRANSCRIPT_ID)
 
     expect(mockApi.delete).toHaveBeenCalledWith(`/api/v1/ai/chat/${TRANSCRIPT_ID}`)
+  })
+})
+
+describe('loadStoredSpeechAudio', () => {
+  const path = `/api/v1/ai/tts/${TRANSCRIPT_ID}`
+  const wav = new ArrayBuffer(8)
+  const metadata = { sampleRate: 16000, durationSeconds: 1, byteSize: 8, format: 'wav' }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('downloads stored audio', async () => {
+    mockApi.get.mockResolvedValueOnce({ audio: metadata })
+    mockApi.getBinary.mockResolvedValueOnce(wav)
+
+    await expect(loadStoredSpeechAudio(TRANSCRIPT_ID, 'summary')).resolves.toBe(wav)
+
+    expect(mockApi.get).toHaveBeenCalledWith(`${path}?source=summary`)
+    expect(mockApi.getBinary).toHaveBeenCalledWith(`${path}/audio?source=summary`, {
+      timeout: expect.any(Number),
+    })
+  })
+
+  it('returns null without generating when nothing is stored', async () => {
+    mockApi.get.mockResolvedValueOnce({ audio: null })
+
+    await expect(loadStoredSpeechAudio(TRANSCRIPT_ID, 'summary')).resolves.toBeNull()
+
+    expect(mockApi.post).not.toHaveBeenCalled()
+    expect(mockApi.getBinary).not.toHaveBeenCalled()
+  })
+
+  it('throws a user-facing message on failure', async () => {
+    mockApi.get.mockRejectedValueOnce(new APIError('Authentication required', 401, 'UNAUTHORIZED'))
+
+    await expect(loadStoredSpeechAudio(TRANSCRIPT_ID, 'summary')).rejects.toThrow(
+      'Please sign in to listen to audio.'
+    )
   })
 })
 

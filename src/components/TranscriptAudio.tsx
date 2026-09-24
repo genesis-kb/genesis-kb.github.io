@@ -1,12 +1,15 @@
 ﻿import { useState, useRef, useCallback, useEffect } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { loadSpeechAudio } from "../../services/aiService";
+import { loadSpeechAudio, loadStoredSpeechAudio } from "../../services/aiService";
+import { useAuth } from "@/hooks/useAuth";
 import type { RawTranscript } from "../../types";
 
 export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) => {
+  const { user } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingStored, setIsLoadingStored] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState("00:00");
@@ -67,6 +70,40 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
     }
   }, [isPlaying]);
 
+  const showAudio = async (wav: ArrayBuffer) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+
+    const buffer = await audioContextRef.current.decodeAudioData(wav);
+    audioBufferRef.current = buffer;
+    setTotalDuration(formatTime(buffer.duration));
+    setIsGenerated(true);
+  };
+
+  // Show audio someone already generated as soon as the player opens.
+  // Signed-out users can't read stored audio, so skip the check for them.
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    setIsLoadingStored(true);
+
+    loadStoredSpeechAudio(transcript.id, "summary")
+      .then((wav) => (wav && !cancelled ? showAudio(wav) : undefined))
+      .catch(() => {
+        // Nothing to show yet — the Generate button still works.
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingStored(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript.id, user?.id]);
+
   const handleGenerate = async () => {
     if (isGenerating) return;
     setIsGenerating(true);
@@ -75,16 +112,7 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
     try {
       // The backend reads the summary (or the transcript when there is none),
       // generating the audio only the first time anyone asks for it.
-      const wav = await loadSpeechAudio(transcript.id, "summary");
-
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-
-      const buffer = await audioContextRef.current.decodeAudioData(wav);
-      audioBufferRef.current = buffer;
-      setTotalDuration(formatTime(buffer.duration));
-      setIsGenerated(true);
+      await showAudio(await loadSpeechAudio(transcript.id, "summary"));
     } catch (err) {
       console.error("TTS generation error:", err);
       setError(err instanceof Error ? err.message : "Failed to generate audio.");
@@ -106,7 +134,11 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
       }
       setIsPlaying(false);
     } else {
-      // Play
+      // Play. A context created before any user gesture (stored audio loaded
+      // on open) starts suspended, so resume it on this click.
+      if (audioContextRef.current.state === "suspended") {
+        void audioContextRef.current.resume();
+      }
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBufferRef.current;
       source.connect(audioContextRef.current.destination);
@@ -204,13 +236,18 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
             </p>
             <button
               onClick={handleGenerate}
-              disabled={isGenerating}
+              disabled={isGenerating || isLoadingStored}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-semibold text-sm hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Generating Audio...
+                </>
+              ) : isLoadingStored ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading Audio...
                 </>
               ) : (
                 <>

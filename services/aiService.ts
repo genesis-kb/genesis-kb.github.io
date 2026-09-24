@@ -254,10 +254,40 @@ export const loadSpeechAudio = async (
   }
 };
 
+/**
+ * Load a transcript's speech only if it is already stored — never generates.
+ * Lets a player show existing audio as soon as it opens.
+ * Errors are thrown with a message that is safe to show the user.
+ * @param transcriptId - Transcript ID
+ * @param source - What was read aloud
+ * @returns Promise with the WAV bytes, or null when nothing is stored yet
+ */
+export const loadStoredSpeechAudio = async (
+  transcriptId: string,
+  source: SpeechSource
+): Promise<ArrayBuffer | null> => {
+  const path = speechPath(transcriptId);
+  const query = `?source=${source}`;
+
+  try {
+    const { audio } = await api.get<{ audio: SpeechAudio | null }>(`${path}${query}`);
+
+    if (!audio) {
+      return null;
+    }
+
+    return await api.getBinary(`${path}/audio${query}`, { timeout: SPEECH_DOWNLOAD_TIMEOUT_MS });
+  } catch (error) {
+    console.error('TTS error:', error);
+    throw new Error(speechErrorMessage(error));
+  }
+};
+
 export default {
   generateSummary,
   chatWithTranscript,
   getChatHistory,
   clearChat,
   loadSpeechAudio,
+  loadStoredSpeechAudio,
 };
